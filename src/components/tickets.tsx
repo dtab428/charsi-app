@@ -1,35 +1,10 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
+import { pickVariant } from "@/lib/facts";
 import { endsLabel, money, percent, quoteDate, variantLabel } from "@/lib/format";
 import { cardmarketSearchUrl, ebaySearchUrl, facebookSearchUrl, goldinSearchUrl, httpsHref, tcgplayerSearchUrl } from "@/lib/links";
-import type { ListingLane, Pin, PriceQuote, PublicCard, VariantQuote } from "@/lib/types";
-
-function pickVariant(modifiers: string[], variants: VariantQuote[]): VariantQuote | null {
-  if (variants.length === 0) return null;
-  const prefer = modifiers.includes("reverse")
-    ? /reverse/i
-    : modifiers.includes("first")
-      ? /1st|first/i
-      : modifiers.includes("shadowless")
-        ? /shadowless/i
-        : modifiers.includes("holo")
-          ? /holo/i
-          : null;
-  if (prefer) {
-    const hit = variants.find((variant) => {
-      if (!prefer.test(`${variant.key} ${variant.label}`)) return false;
-      if (modifiers.includes("holo") && !modifiers.includes("reverse") && /reverse/i.test(variant.key)) return false;
-      return true;
-    });
-    if (hit) return hit;
-  }
-  for (const key of ["holofoil", "normal", "unlimitedHolofoil", "reverseHolofoil"]) {
-    const hit = variants.find((variant) => variant.key === key && variant.market != null);
-    if (hit) return hit;
-  }
-  return variants.find((variant) => variant.market != null) ?? variants[0] ?? null;
-}
+import type { ListingLane, Pin, PriceQuote, PublicCard } from "@/lib/types";
 
 function Ticket({
   kicker,
@@ -239,7 +214,7 @@ export function MarketTickets({
 
   return (
     <div className="pointer-events-none absolute inset-0">
-      <svg className="absolute inset-[4%] text-[#d4a574]" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
+      <svg className="absolute text-[#d4a574]" style={{ top: "4%", right: "4%", bottom: "4%", left: "4%", width: "92%", height: "92%" }} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
         <ellipse cx="50" cy="50" rx="37" ry="39" fill="none" stroke="currentColor" strokeOpacity="0.45" />
       </svg>
       {tickets.map((ticket, index) => (

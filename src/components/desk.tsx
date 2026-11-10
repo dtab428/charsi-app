@@ -13,9 +13,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { fileSlug } from "@/lib/format";
+import { marketAmount } from "@/lib/facts";
+import { fileSlug, money } from "@/lib/format";
 import { GAMES, SAMPLE_LIST } from "@/lib/games";
 import { cardBlob, copyBlob, downloadBlob } from "@/lib/pictures";
 import { renderSheet } from "@/lib/sheet";
@@ -27,7 +27,6 @@ const STORAGE = "surround.desk.v1";
 
 type Saved = {
   text?: string;
-  surround?: boolean;
   title?: string;
   pins?: Record<string, Pin>;
 };
@@ -39,7 +38,7 @@ async function readJson<T>(response: Response): Promise<T> {
 export function Desk() {
   const [text, setText] = useState("");
   const [title, setTitle] = useState("");
-  const [surround, setSurround] = useState(false);
+  const [openKey, setOpenKey] = useState<string | null>(null);
   const [items, setItems] = useState<DeskItem[]>([]);
   const [pulling, setPulling] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,7 +58,6 @@ export function Desk() {
       // Browser storage is read after hydration so the server render stays empty.
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setText(saved.text ?? "");
-      setSurround(Boolean(saved.surround));
       setTitle(saved.title ?? "");
       setPins(saved.pins ?? {});
       if (saved.text?.trim()) void pull(saved.text);
@@ -71,9 +69,9 @@ export function Desk() {
   }, []);
 
   useEffect(() => {
-    const payload: Saved = { text, surround, title, pins };
+    const payload: Saved = { text, title, pins };
     localStorage.setItem(STORAGE, JSON.stringify(payload));
-  }, [text, surround, title, pins]);
+  }, [text, title, pins]);
 
   async function loadPrices(ids: string[]) {
     if (ids.length === 0) return;
@@ -144,6 +142,7 @@ export function Desk() {
         return;
       }
       const next = payload.items.map((item) => ({ ...item, key: crypto.randomUUID(), included: Boolean(item.card) }));
+      setOpenKey(null);
       setItems(next);
       const ids = [...new Set(next.flatMap((item) => (item.card ? [item.card.id] : [])))];
       void loadPrices(ids);
@@ -229,6 +228,13 @@ export function Desk() {
   const matched = items.filter((item) => item.card).length;
   const picks = items.filter((item) => item.status === "ambiguous").length;
   const onSheet = items.filter((item) => item.included && item.card).length;
+  const worth = items.reduce((sum, item) => {
+    if (!item.card) return sum;
+    const amount = marketAmount(item.modifiers, quotes[item.card.id]);
+    return amount == null ? sum : sum + amount * item.quantity;
+  }, 0);
+  const priced = items.filter((item) => item.card && marketAmount(item.modifiers, quotes[item.card.id]) != null).length;
+  const listWorth = priced > 0 ? money(worth, "USD") : "";
   const skeletons = Math.min(8, Math.max(3, text.split(/\n|,/).filter((line) => line.trim()).length));
 
   return (
@@ -237,7 +243,7 @@ export function Desk() {
         <div className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-3 px-4 py-3">
           <div>
             <h1 className="font-serif text-3xl leading-none italic tracking-tight">Surround</h1>
-            <p className="mt-1 text-xs text-[#b3a694]">Lay a list down. Leave with the cards, and the market around them.</p>
+            <p className="mt-1 text-xs text-[#b3a694]">Lay a list down. Every card on it keeps its own numbers.</p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <DropdownMenu>
@@ -254,10 +260,6 @@ export function Desk() {
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
-            <label className="flex items-center gap-2 text-sm">
-              <Switch checked={surround} onCheckedChange={setSurround} />
-              Surround
-            </label>
           </div>
         </div>
       </header>
@@ -308,9 +310,9 @@ export function Desk() {
         {error ? <p className="rounded-2xl border border-[#d4654f]/40 bg-[#d4654f]/10 px-4 py-3 text-sm">{error}</p> : null}
 
         {pulling && items.length === 0 ? (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+          <div className="flex flex-col gap-3">
             {Array.from({ length: skeletons }, (_, index) => (
-              <Skeleton key={index} className="aspect-[63/88] rounded-md bg-white/10" />
+              <Skeleton key={index} className="h-28 rounded-[24px] bg-white/10" />
             ))}
           </div>
         ) : null}
@@ -320,7 +322,8 @@ export function Desk() {
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
                 <p className="font-serif text-2xl italic">
-                  {matched} on the desk{picks ? ` · ${picks} need a pick` : ""}
+                  {matched} on the desk{picks ? ` · ${picks} ${picks === 1 ? "needs" : "need"} a pick` : ""}
+                  {listWorth ? ` · about ${listWorth} on TCGplayer` : ""}
                 </p>
                 <p className="mt-1 max-w-2xl text-xs leading-relaxed text-[#b3a694]">
                   {quoteSource || "Pictures are ready. Quotes follow."}
@@ -346,11 +349,12 @@ export function Desk() {
             </div>
             <Board
               items={items}
-              surround={surround}
+              openKey={openKey}
               quotes={quotes}
               loadingQuotes={loadingQuotes}
               lanes={lanes}
               pins={pins}
+              onOpen={setOpenKey}
               onPin={(id, pin) => setPins((current) => ({ ...current, [id]: pin }))}
               onInclude={(key, included) => setItems((current) => current.map((item) => (item.key === key ? { ...item, included } : item)))}
               onRemove={(key) => setItems((current) => current.filter((item) => item.key !== key))}

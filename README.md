@@ -19,9 +19,9 @@ charzard base set 4
 - Set codes (`TRR`, `OBF`, `151`) and set names both work.
 - “Use a messy sample” loads a list that includes a typo and one card that needs a pick.
 
-**Pull the cards** fetches the pictures. Copy or save any single picture. Download or copy the sheet when you want every selected picture in one image. Cards marked “Off the sheet” stay on the desk and off the sheet.
+**Pull the cards** fetches the pictures. The page is that same card, repeated for the whole list. Every card shows its picture and the numbers on it: TCGplayer, Cardmarket, eBay auctions, Buy It Now, recent sales, and your pin. Open any card when you want the full ring of tickets. Copy or save any single picture. Download or copy the sheet when you want every selected picture in one image. Cards marked “Off the sheet” stay on the desk and off the sheet.
 
-**Surround** opens six tickets around each card:
+The ring on an open card shows:
 
 - TCGplayer market, low, mid, and high, by printing
 - Cardmarket trend and 7- and 30-day averages, in euros

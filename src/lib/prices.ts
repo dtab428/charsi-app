@@ -4,6 +4,7 @@ import type { CardmarketQuote, GradedQuote, PriceQuote, TrendPoint, VariantQuote
 type CacheEntry = { at: number; quote: PriceQuote | null };
 const cache = new Map<string, CacheEntry>();
 const TTL_MS = 15 * 60 * 1000;
+const MISS_TTL_MS = 20 * 1000;
 
 const GRADED_COMPANIES = new Set(["PSA", "BGS", "CGC", "SGC", "TAG"]);
 
@@ -33,13 +34,16 @@ function chunk<T>(items: T[], size: number): T[][] {
 }
 
 async function fetchJson(url: string, init?: RequestInit): Promise<unknown | null> {
-  try {
-    const response = await fetch(url, { ...init, signal: AbortSignal.timeout(12_000) });
-    if (!response.ok) return null;
-    return await response.json();
-  } catch {
-    return null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const response = await fetch(url, { ...init, signal: AbortSignal.timeout(12_000) });
+      if (response.ok) return await response.json();
+    } catch {
+      // The public price feed blips. One more try, then the card keeps its links.
+    }
+    if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, 500));
   }
+  return null;
 }
 
 function trendsFrom(source: unknown): TrendPoint[] {
@@ -215,7 +219,8 @@ export async function quotesFor(ids: string[]): Promise<Record<string, PriceQuot
   const result: Record<string, PriceQuote | null> = {};
   for (const id of ids) {
     const hit = cache.get(id);
-    if (hit && now - hit.at < TTL_MS) result[id] = hit.quote;
+    const freshFor = hit?.quote ? TTL_MS : MISS_TTL_MS;
+    if (hit && now - hit.at < freshFor) result[id] = hit.quote;
     else missing.push(id);
   }
   if (missing.length === 0) return result;
