@@ -157,7 +157,7 @@ export function MarketTickets({
         <Listings lane={buyNow} empty="Open eBay for Buy It Now. A key lists those prices here." />
       </Ticket>,
 
-      <Ticket key="sales" kicker="Last sales" title={movement[0] ? percent(movement[0].percent) : quote?.cardmarket ? money(quote.cardmarket.avg7, "EUR") : "Sold"} href={ebaySearchUrl(card, "sold")} action="eBay sold">
+      <Ticket key="sales" kicker="Last sales" title={movement[0] ? percent(movement[0].percent) : quote?.cardmarket ? money(quote.cardmarket.avg7, "EUR") : "Sold"} href={ebaySearchUrl(card, "sold")} action="Ended recently">
         {movement.length > 0 ? (
           <ul>
             {movement.map((point) => (

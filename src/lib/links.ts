@@ -13,6 +13,7 @@ export function ebaySearchUrl(card: PublicCard, lane: "auction" | "bin" | "sold"
   if (lane === "sold") {
     url.searchParams.set("LH_Sold", "1");
     url.searchParams.set("LH_Complete", "1");
+    url.searchParams.set("_sop", "13");
   }
   return url.toString();
 }

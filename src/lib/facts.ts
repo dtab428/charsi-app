@@ -110,7 +110,7 @@ export function cardFacts(
     id: "sales",
     kicker: "Recent",
     value: week?.percent != null ? percent(week.percent) : quote?.cardmarket ? money(quote.cardmarket.avg7, "EUR") : "Sold",
-    detail: week ? `${week.days}-day move` : "eBay sold",
+    detail: week ? `${week.days}-day move` : "Ended recently",
     href: ebaySearchUrl(card, "sold"),
   };
 
