@@ -4,6 +4,8 @@ const nextConfig: NextConfig = {
   // The dev server is opened as 127.0.0.1. Without this, Next serves the
   // page but refuses to hydrate it.
   allowedDevOrigins: ["127.0.0.1"],
+  devIndicators: false,
+  serverExternalPackages: ["tesseract.js"],
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "images.pokemontcg.io", pathname: "/**" },

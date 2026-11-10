@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Board, type DeskItem } from "@/components/board";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { marketAmount } from "@/lib/facts";
 import { fileSlug, money } from "@/lib/format";
 import { GAMES, SAMPLE_LIST } from "@/lib/games";
+import { cardBands } from "@/lib/photo-bands";
 import { cardBlob, copyBlob, downloadBlob } from "@/lib/pictures";
 import { renderSheet } from "@/lib/sheet";
 import type { ListingLane, Pin, PriceQuote, PublicCard, ResolveItem } from "@/lib/types";
@@ -50,6 +51,10 @@ export function Desk() {
   const [pins, setPins] = useState<Record<string, Pin>>({});
   const [zoom, setZoom] = useState<PublicCard | null>(null);
   const [sheeting, setSheeting] = useState(false);
+  const [reading, setReading] = useState(0);
+  const [over, setOver] = useState(false);
+  const dragDepth = useRef(0);
+  const photosRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     try {
@@ -124,6 +129,52 @@ export function Desk() {
     } catch {
       setEbayOn(false);
     }
+  }
+
+  async function addPhotos(list: File[]) {
+    const images = list.filter((file) => /^image\/(jpeg|png|webp|gif)$/.test(file.type)).slice(0, 12);
+    if (images.length === 0) {
+      toast.error("Drop a JPEG, PNG, or WebP of the card front.");
+      return;
+    }
+    if (list.length > images.length) toast("A few of those files weren’t pictures, so they were skipped.");
+    setReading((count) => count + images.length);
+    let cursor = 0;
+    const next = async () => {
+      const file = images[cursor];
+      cursor += 1;
+      if (!file) return;
+      try {
+        const bands = await cardBands(file);
+        const body = new FormData();
+        body.set("name", bands.name, "name.jpg");
+        body.set("number", bands.number, "number.jpg");
+        const response = await fetch("/api/identify", { method: "POST", body });
+        const payload = await readJson<{ line?: string; item?: ResolveItem; error?: string }>(response);
+        if (!response.ok || !payload.item) {
+          toast.error(payload.error ?? "That photo didn’t read.");
+        } else {
+          const item = payload.item;
+          setItems((current) => {
+            if (current.length >= 80) return current;
+            return [...current, { ...item, key: crypto.randomUUID(), included: Boolean(item.card) }];
+          });
+          if (payload.line) {
+            setText((current) => (current.trim() ? `${current.trim()}\n${payload.line}` : payload.line ?? ""));
+          }
+          if (item.card) {
+            void loadPrices([item.card.id]);
+            void loadMarket([item.card.id]);
+          }
+        }
+      } catch {
+        toast.error("That photo didn’t read.");
+      } finally {
+        setReading((count) => Math.max(0, count - 1));
+        await next();
+      }
+    };
+    await Promise.all([next(), next()]);
   }
 
   async function pull(list = text) {
@@ -238,7 +289,34 @@ export function Desk() {
   const skeletons = Math.min(8, Math.max(3, text.split(/\n|,/).filter((line) => line.trim()).length));
 
   return (
-    <div className="min-h-full bg-[#14110e] text-[#f3ecdf]">
+    <div
+      className="min-h-full bg-[#14110e] text-[#f3ecdf]"
+      onDragEnter={(event) => {
+        if (![...event.dataTransfer.types].includes("Files")) return;
+        event.preventDefault();
+        dragDepth.current += 1;
+        setOver(true);
+      }}
+      onDragOver={(event) => {
+        if ([...event.dataTransfer.types].includes("Files")) event.preventDefault();
+      }}
+      onDragLeave={() => {
+        dragDepth.current = Math.max(0, dragDepth.current - 1);
+        if (dragDepth.current === 0) setOver(false);
+      }}
+      onDrop={(event) => {
+        if (![...event.dataTransfer.types].includes("Files")) return;
+        event.preventDefault();
+        dragDepth.current = 0;
+        setOver(false);
+        void addPhotos([...event.dataTransfer.files]);
+      }}
+    >
+      {over ? (
+        <div className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center bg-[#14110e]/80">
+          <p className="rounded-full bg-[#efe6d4] px-6 py-3 font-serif text-3xl text-[#241c14] italic">Drop the cards</p>
+        </div>
+      ) : null}
       <header className="sticky top-0 z-30 border-b border-white/10 bg-[#14110e]/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-3 px-4 py-3">
           <div>
@@ -301,8 +379,23 @@ export function Desk() {
             >
               {pulling ? "Pulling…" : "Pull the cards"}
             </Button>
+            <Button type="button" variant="outline" disabled={reading > 0} onClick={() => photosRef.current?.click()}>
+              {reading > 0 ? `Reading ${reading}…` : "Add photos"}
+            </Button>
+            <input
+              ref={photosRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              multiple
+              className="sr-only"
+              onChange={(event) => {
+                const files = [...(event.target.files ?? [])];
+                event.target.value = "";
+                if (files.length > 0) void addPhotos(files);
+              }}
+            />
             <p className="max-w-xl text-sm text-[#241c14]/70">
-              Commas or new lines. Partial names, set codes, and typos are fine. Write 4x when you mean four copies.
+              Commas, new lines, or photos of the fronts. Drop one card or a handful. Partial names and typos are fine.
             </p>
           </div>
         </section>

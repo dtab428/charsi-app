@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start -p 4177 -H 0.0.0.0",
     "lint": "eslint",
-    "test": "tsx --test src/lib/resolve.test.ts",
+    "test": "tsx --test src/lib/resolve.test.ts src/lib/ocr-line.test.ts",
     "catalog": "python3 scripts/build-catalog.py"
   },
   "dependencies": {
@@ -21,7 +21,11 @@
     "react-dom": "19.3.0",
     "shadcn": "^4.23.0",
     "sonner": "^2.0.8",
+    "tesseract.js": "^5.1.1",
     "tw-animate-css": "^1.4.0"
+  },
+  "overrides": {
+    "wasm-feature-detect": "1.8.0"
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "4.3.3",
