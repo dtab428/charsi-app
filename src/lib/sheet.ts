@@ -49,7 +49,7 @@ export async function renderSheet(cells: SheetCell[], title: string): Promise<Bl
 
   context.fillStyle = "#f3ecdf";
   context.font = "italic 34px Georgia, serif";
-  context.fillText(title.trim() || "Surround", pad, pad + 36);
+  context.fillText(title.trim() || "Charsi", pad, pad + 36);
   context.fillStyle = "#d4a574";
   context.font = "15px Georgia, serif";
   context.fillText(sheetDate(), pad, pad + 60);

@@ -20,10 +20,10 @@ type CatalogFile = {
   cards: CatalogCard[];
 };
 
-const globalCache = globalThis as unknown as { __surroundCatalog?: IndexedCatalog };
+const globalCache = globalThis as unknown as { __charsiCatalog?: IndexedCatalog };
 
 export function getCatalog(): IndexedCatalog {
-  if (globalCache.__surroundCatalog) return globalCache.__surroundCatalog;
+  if (globalCache.__charsiCatalog) return globalCache.__charsiCatalog;
   const file = path.join(process.cwd(), "data/catalog/pokemon.json");
   const raw = JSON.parse(fs.readFileSync(file, "utf8")) as CatalogFile;
   const sets = new Map(raw.sets.map((set) => [set.id, set]));
@@ -60,8 +60,8 @@ export function getCatalog(): IndexedCatalog {
     .filter((alias) => alias.words.length > 0)
     .sort((a, b) => b.words.length - a.words.length || b.phrase.length - a.phrase.length);
 
-  globalCache.__surroundCatalog = { cards: raw.cards, sets, aliases, tokenIndex, dictionary, setIndex };
-  return globalCache.__surroundCatalog;
+  globalCache.__charsiCatalog = { cards: raw.cards, sets, aliases, tokenIndex, dictionary, setIndex };
+  return globalCache.__charsiCatalog;
 }
 
 export function toPublic(catalog: IndexedCatalog, card: CatalogCard): PublicCard {

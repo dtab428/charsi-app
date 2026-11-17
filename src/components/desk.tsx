@@ -24,7 +24,7 @@ import type { ListingLane, Pin, PriceQuote, PublicCard, ResolveItem } from "@/li
 import { ChevronDownIcon } from "lucide-react";
 import Image from "next/image";
 
-const STORAGE = "surround.desk.v1";
+const STORAGE = "charsi.desk.v1";
 
 type Saved = {
   text?: string;
@@ -263,11 +263,11 @@ export function Desk() {
           await copyBlob(blob);
           toast.success("Sheet copied");
         } catch {
-          downloadBlob(blob, "surround-sheet.png");
+          downloadBlob(blob, "charsi-sheet.png");
           toast("Couldn’t copy the sheet, so it downloaded");
         }
       } else {
-        downloadBlob(blob, "surround-sheet.png");
+        downloadBlob(blob, "charsi-sheet.png");
       }
     } catch {
       toast.error("The sheet didn’t render");
@@ -320,7 +320,7 @@ export function Desk() {
       <header className="sticky top-0 z-30 border-b border-white/10 bg-[#14110e]/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-3 px-4 py-3">
           <div>
-            <h1 className="font-serif text-3xl leading-none italic tracking-tight">Surround</h1>
+            <h1 className="font-serif text-3xl leading-none italic tracking-tight">Charsi</h1>
             <p className="mt-1 text-xs text-[#b3a694]">Lay a list down. Every card on it keeps its own numbers.</p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
@@ -461,7 +461,7 @@ export function Desk() {
       </main>
 
       <footer className="mx-auto max-w-[1200px] px-4 pt-4 pb-10 text-xs leading-relaxed text-[#b3a694]">
-        Card data and images are © Pokémon, Nintendo, Creatures, and GAME FREAK. Surround isn’t affiliated with them, or with eBay, TCGplayer, Cardmarket, Goldin, Facebook, or Discord. Prices come from the Pokémon TCG API (TCGplayer and Cardmarket) unless a Scrydex key is connected. eBay listings load with an eBay application key. Goldin, Facebook Marketplace, and Discord are links and pins, not a scrape.
+        Card data and images are © Pokémon, Nintendo, Creatures, and GAME FREAK. Charsi isn’t affiliated with them, or with eBay, TCGplayer, Cardmarket, Goldin, Facebook, or Discord. Prices come from the Pokémon TCG API (TCGplayer and Cardmarket) unless a Scrydex key is connected. eBay listings load with an eBay application key. Goldin, Facebook Marketplace, and Discord are links and pins, not a scrape.
       </footer>
 
       <Dialog open={zoom != null} onOpenChange={(open) => !open && setZoom(null)}>

@@ -17,7 +17,7 @@ const serif = Instrument_Serif({
 });
 
 export const metadata: Metadata = {
-  title: "Surround",
+  title: "Charsi",
   description: "Lay down a Pokémon card list. Pull the pictures, then open the market around each card.",
 };
 

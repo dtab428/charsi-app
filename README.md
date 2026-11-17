@@ -1,6 +1,6 @@
-# Surround
+# Charsi
 
-A desk for card lists. Paste a messy want-list, and Surround finds the cards — typos, short set codes, and missing words included — then lays out the pictures. Turn on Surround and each card sits inside the market around it: TCGplayer, Cardmarket, eBay auctions, Buy It Now, recent sales, and a pin for a price you saw on Facebook or Discord.
+A desk for card lists. Paste a messy want-list, and Charsi finds the cards — typos, short set codes, and missing words included — then lays out the pictures. Each card keeps the market around it: TCGplayer, Cardmarket, eBay auctions, Buy It Now, recent sales, and a pin for a price you saw on Facebook or Discord.
 
 Pokémon is the live catalog. Magic, Yu-Gi-Oh!, Lorcana, One Piece, and Gundam are named in the switcher so the desk can take the next game without changing shape. Quotes for those games come through Scrydex once that catalog is connected.
 
