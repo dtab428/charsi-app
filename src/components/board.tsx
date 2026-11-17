@@ -1,11 +1,12 @@
 "use client";
 
-import Image from "next/image";
+import { CardPicture } from "@/components/card-picture";
 import { Button } from "@/components/ui/button";
 import { AddToCollection } from "@/components/add-to-collection";
 import { CardMarket } from "@/components/market";
 import { Pressable } from "@/components/ui/ripple";
 import { useState } from "react";
+import { finishOf } from "@/lib/format";
 import { cardHref, printingSlug } from "@/lib/printing";
 import type { Filters } from "@/lib/feed";
 import { emptyLane } from "@/lib/links";
@@ -28,18 +29,10 @@ function legal(card: PublicCard): string {
   return "Unlimited";
 }
 
-function Face({ card, onZoom }: { card: PublicCard; onZoom: (card: PublicCard) => void }) {
+function Face({ card, src, finish, onZoom }: { card: PublicCard; src: string; finish: ReturnType<typeof finishOf>; onZoom: (card: PublicCard) => void }) {
   return (
     <Pressable onClick={() => onZoom(card)} className="block w-full rounded-md text-left">
-      <Image
-        src={card.small || card.large}
-        alt={card.name}
-        width={245}
-        height={342}
-        unoptimized
-        className="rounded-md bg-[#2a241e]"
-        style={{ width: "100%", height: "auto" }}
-      />
+      <CardPicture src={src} alt={card.name} finish={finish} width={245} height={342} />
     </Pressable>
   );
 }
@@ -118,6 +111,8 @@ function CardDesk({
   const card = item.card;
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const printing = activeKey ? printingSlug(activeKey) : null;
+  const finish = finishOf(activeKey);
+  const picture = (card && quote && quote.variants.find((entry) => entry.key === activeKey)?.image) || card?.small || card?.large || "";
   const auctions = card ? lanes?.auctions ?? emptyLane(card, "auction") : null;
   const buyNow = card ? lanes?.buyNow ?? emptyLane(card, "bin") : null;
 
@@ -126,7 +121,7 @@ function CardDesk({
       <div className="flex gap-3 sm:gap-5">
         <div className="w-24 shrink-0 self-start sm:w-40 lg:w-48">
           {card ? (
-            <Face card={card} onZoom={onZoom} />
+            <Face card={card} src={picture} finish={finish} onZoom={onZoom} />
           ) : (
             <div className="flex aspect-[63/88] items-end rounded-md border border-dashed border-white/15 p-2 text-xs text-[#b3a694]">{item.raw}</div>
           )}
@@ -160,7 +155,7 @@ function CardDesk({
             <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
               {item.alternatives.map((alt) => (
                 <Pressable key={alt.id} onClick={() => onChoose(item.key, alt)} className="w-12 shrink-0 rounded-sm text-left">
-                  <Image src={alt.small} alt="" width={56} height={78} unoptimized className="rounded-sm" style={{ width: "100%", height: "auto" }} />
+                  <CardPicture src={alt.small} alt="" finish={null} width={56} height={78} className="rounded-sm bg-[#2a241e]" />
                   <span className="mt-1 block truncate text-[10px] text-[#b3a694]">{alt.setCode || alt.number}</span>
                 </Pressable>
               ))}

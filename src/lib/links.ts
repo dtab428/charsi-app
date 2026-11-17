@@ -24,14 +24,46 @@ export function ebaySearchUrl(card: PublicCard, lane: "auction" | "bin" | "sold"
     url.searchParams.set("LH_Complete", "1");
     url.searchParams.set("_sop", "13");
   }
-  return url.toString();
+  return affiliateUrl(url.toString());
 }
 
 export function tcgplayerSearchUrl(card: PublicCard): string {
   const url = new URL("https://www.tcgplayer.com/search/pokemon/product");
   url.searchParams.set("q", `${card.name} ${card.setName} ${card.number}`);
   url.searchParams.set("view", "grid");
+  return affiliateUrl(url.toString());
+}
+
+export function affiliateUrl(value: string): string {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return value;
+  }
+  const host = url.hostname.replace(/^www\./, "");
+  if (host.endsWith("ebay.com")) return ebayAffiliate(url);
+  if (host === "tcgplayer.com") return tcgplayerAffiliate(url);
+  return value;
+}
+
+function ebayAffiliate(url: URL): string {
+  const campaign = process.env.NEXT_PUBLIC_EBAY_CAMPAIGN_ID?.trim() ?? "";
+  if (!/^\d{4,16}$/.test(campaign) || url.searchParams.has("campid")) return url.toString();
+  url.searchParams.set("mkevt", "1");
+  url.searchParams.set("mkcid", "1");
+  url.searchParams.set("mkrid", "711-53200-19255-0");
+  url.searchParams.set("campid", campaign);
+  url.searchParams.set("toolid", "10001");
   return url.toString();
+}
+
+function tcgplayerAffiliate(url: URL): string {
+  const base = process.env.NEXT_PUBLIC_TCGPLAYER_PARTNER_LINK?.trim() ?? "";
+  if (!base.startsWith("https://partner.tcgplayer.com/")) return url.toString();
+  const wrapped = new URL(base);
+  wrapped.searchParams.set("u", url.toString());
+  return wrapped.toString();
 }
 
 export function cardmarketSearchUrl(card: PublicCard): string {
@@ -95,7 +127,8 @@ export function allowedImageUrl(value: string): boolean {
   }
   if (url.protocol !== "https:") return false;
   if (url.username || url.password) return false;
-  if (url.hostname !== "images.pokemontcg.io" && url.hostname !== "images.scrydex.com") return false;
+  const images = new Set(["images.pokemontcg.io", "images.scrydex.com", "tcgplayer-cdn.tcgplayer.com", "assets.tcgdex.net"]);
+  if (!images.has(url.hostname)) return false;
   if (url.pathname.includes("..") || url.pathname.includes("\\")) return false;
   return true;
 }

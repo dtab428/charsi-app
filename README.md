@@ -29,6 +29,8 @@ The feed beside each card mixes every source into one list, newest first:
 
 Filters above the cards narrow the feed by source (All, TCGplayer, Cardmarket, eBay) and by condition (Raw, PSA, BGS, CGC, TAG, SGC, with a grade). The free feeds carry no graded prices, so the graded view opens eBay for that company and grade. Scrydex graded prices appear there when a Scrydex key is connected.
 
+Finishes follow TCGplayer. A card can be non-holo, holo, and reverse holo at once. Reverse holo is the stamped printing and almost never has its own scan, so that page keeps the shared picture and marks it “Reverse holo · set stamp.” Holo, when TCGplayer files it as its own product (often under Deck Exclusives), is loaded beside the other two. Pictures themselves come from the public card CDNs (images.pokemontcg.io, and TCGplayer’s image host for a holo product). They are not stored in this repo. If a browser can’t reach the CDN, the app asks our server to fetch that one picture.
+
 ## Card pages
 
 Every card, and every printing, has its own page: `/card/<id>` and `/card/<id>/reverse-holo`. Click a card name on the desk to open one. A card page has the card details, the same feed and filters, price charts, and Add to My Collection. Charts start with the Cardmarket 30-day, 7-day and yesterday averages. Charsi also saves each price it sees once a day (in `.data/history`, not committed), so the TCGplayer and Cardmarket lines fill in as you keep using it. No free source publishes older sales.
@@ -68,6 +70,8 @@ Copy `.env.example` to `.env.local` if you want live feeds beyond the public fal
 | `SCRYDEX_API_KEY` and `SCRYDEX_TEAM_ID` | Preferred quotes: raw prices, trends, and graded prices. Also the route for other trading card games. [Scrydex](https://scrydex.com) |
 | `POKEMON_TCG_API_KEY` | Higher rate limit on the public Pokémon TCG API, used when Scrydex is not set |
 | `EBAY_CLIENT_ID` and `EBAY_CLIENT_SECRET` | Live eBay auctions and Buy It Now in the feed |
+| `NEXT_PUBLIC_EBAY_CAMPAIGN_ID` | eBay Partner Network campaign id. Search and listing links then carry it, so a purchase can credit you. Blank leaves the link plain. |
+| `NEXT_PUBLIC_TCGPLAYER_PARTNER_LINK` | Your Impact partner link for TCGplayer (`https://partner.tcgplayer.com/c/...`). Product and search links are wrapped with it. Cardmarket has no equivalent link program. |
 | `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `SESSION_SECRET` | Discord sign-in for My Collection |
 
 Without those keys, pictures, matching, TCGplayer, and Cardmarket still work. Those numbers come from TCGdex: TCGplayer’s market price, and Cardmarket’s 1-day, 7-day, and 30-day sale averages. The date on each row is when that feed last refreshed, not a single auction. eBay sold listings stay a search until a sold-listings feed exists.

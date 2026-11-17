@@ -1,6 +1,6 @@
 import { pickVariant, saleAverages } from "./facts";
 import { endsLabel, listedLabel, money, quoteDate } from "./format";
-import { altSearchUrl, cardmarketSearchUrl, fanaticsSearchUrl, ebaySearchUrl, facebookSearchUrl, goldinSearchUrl, httpsHref, tcgplayerSearchUrl, type Grading } from "./links";
+import { affiliateUrl, altSearchUrl, cardmarketSearchUrl, fanaticsSearchUrl, ebaySearchUrl, facebookSearchUrl, goldinSearchUrl, httpsHref, tcgplayerSearchUrl, type Grading } from "./links";
 import type { Listing, ListingLane, Pin, PriceQuote, PublicCard } from "./types";
 
 export type SourceFilter = "all" | "tcgplayer" | "cardmarket" | "ebay";
@@ -75,7 +75,7 @@ function listingRow(listing: Listing, kind: "auction" | "bin", index: number): F
     sub: parts.filter(Boolean).join(" · ") || null,
     value: money(listing.price, listing.currency),
     when: kind === "auction" ? endsLabel(listing.endsAt) : listedLabel(listing.listedAt),
-    href: listing.url,
+    href: affiliateUrl(listing.url),
     link: false,
     at: kind === "auction" ? time(listing.endsAt) : time(listing.listedAt),
     order: index,
@@ -124,7 +124,7 @@ export function buildFeed(input: {
   if (filters.condition === "raw") {
     const variant = quote?.variants.find((entry) => entry.key === variantKey) ?? pickVariant(modifiers, quote?.variants ?? []);
     const marketSource: FeedSource = quote?.source === "scrydex" ? "scrydex" : "tcgplayer";
-    const marketHref = httpsHref(quote?.productUrl, tcgplayerSearchUrl(card));
+    const marketHref = affiliateUrl(httpsHref(variant?.productUrl ?? quote?.productUrl, tcgplayerSearchUrl(card)));
     const cardmarketHref = httpsHref(quote?.cardmarket?.url, cardmarketSearchUrl(card));
     const sales = saleAverages(quote, variant);
 

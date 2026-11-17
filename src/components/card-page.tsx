@@ -1,7 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
+import { CardPicture } from "@/components/card-picture";
 import { useEffect, useState } from "react";
 import { SiteHeader } from "@/components/account-menu";
 import { AddToCollection } from "@/components/add-to-collection";
@@ -10,7 +10,7 @@ import { PriceChart, type ChartPoint } from "@/components/price-chart";
 import { Pressable } from "@/components/ui/ripple";
 import { pickVariant, saleAverages } from "@/lib/facts";
 import { DEFAULT_FILTERS, type Filters } from "@/lib/feed";
-import { quoteDate, variantLabel } from "@/lib/format";
+import { finishOf, finishRank, quoteDate, variantLabel } from "@/lib/format";
 import { emptyLane } from "@/lib/links";
 import { cardHref, findPrinting, printingSlug } from "@/lib/printing";
 import type { Snapshot } from "@/lib/history";
@@ -78,7 +78,7 @@ export function CardPage({ card, printing }: { card: PublicCard; printing: strin
     };
   }, [card.id]);
 
-  const variants = quote?.variants ?? [];
+  const variants = [...(quote?.variants ?? [])].sort((a, b) => finishRank(a.key) - finishRank(b.key));
   const selected = findPrinting(variants, printing) ?? pickVariant([], variants);
   const activeKey = selected?.key ?? null;
   const auctions = lanes?.auctions ?? emptyLane(card, "auction");
@@ -110,7 +110,7 @@ export function CardPage({ card, printing }: { card: PublicCard; printing: strin
         </Link>
         <div className="grid gap-6 lg:grid-cols-[minmax(0,19rem)_minmax(0,1fr)]">
           <aside className="flex flex-col gap-4">
-            <Image src={card.large || card.small} alt={card.name} width={480} height={670} unoptimized priority className="rounded-xl bg-[#2a241e]" style={{ width: "100%", height: "auto" }} />
+            <CardPicture src={selected?.image || card.large || card.small} alt={card.name} finish={finishOf(activeKey)} width={480} height={670} priority className="rounded-xl bg-[#2a241e]" />
             <AddToCollection
               card={card}
               printing={activeKey ? printingSlug(activeKey) : null}

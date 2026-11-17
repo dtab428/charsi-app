@@ -7,7 +7,7 @@ import { Pressable } from "@/components/ui/ripple";
 import { Skeleton } from "@/components/ui/skeleton";
 import { pickVariant } from "@/lib/facts";
 import { buildFeed, COMPANIES, GRADES, type Company, type FeedRow, type FeedSource, type Filters, type SourceFilter } from "@/lib/feed";
-import { variantLabel } from "@/lib/format";
+import { finishRank, variantLabel } from "@/lib/format";
 import { cardHref, printingSlug } from "@/lib/printing";
 import type { ListingLane, Pin, PriceQuote, PublicCard } from "@/lib/types";
 
@@ -96,7 +96,7 @@ export function MarketFilters({ filters, onChange }: { filters: Filters; onChang
 function RowView({ row }: { row: FeedRow }) {
   const body = (
     <>
-      <span className={`w-[5.25rem] shrink-0 rounded-full px-2 py-0.5 text-center text-[10px] font-medium tracking-[0.08em] uppercase ${BADGE_STYLE[row.source]}`}>
+      <span className={`shrink-0 rounded-full px-2 py-0.5 text-center text-[10px] font-medium tracking-[0.08em] whitespace-nowrap uppercase ${BADGE_STYLE[row.source]}`}>
         {row.badge ?? BADGE[row.source]}
       </span>
       <span className="min-w-0 flex-1 text-left">
@@ -222,7 +222,11 @@ export function CardMarket({
     );
   }
 
-  const variants = filters.condition === "raw" ? quote?.variants.slice(0, 5) ?? [] : [];
+  const variants = (filters.condition === "raw" ? quote?.variants ?? [] : [])
+    .slice()
+    .sort((a, b) => finishRank(a.key) - finishRank(b.key))
+    .slice(0, 6);
+  const bothFoils = variants.some((entry) => entry.key === "holofoil") && variants.some((entry) => entry.key === "reverseHolofoil");
 
   return (
     <div className="mt-4 flex flex-col gap-4">
@@ -236,6 +240,7 @@ export function CardMarket({
           ))}
         </div>
       ) : null}
+      {bothFoils ? <p className="text-[11px] leading-relaxed text-[#b3a694]">Holo and reverse holo are different TCGplayer printings. Reverse holo is the one with the set stamp.</p> : null}
       {!hideDetailsLink ? (
         <div>
           <Pressable sameTab href={cardHref(card.id, activeKey ? printingSlug(activeKey) : null)} className="inline-flex items-center rounded-full border border-white/15 px-3 py-1.5 text-xs text-[#f3ecdf] hover:bg-white/10">
@@ -243,8 +248,10 @@ export function CardMarket({
           </Pressable>
         </div>
       ) : null}
-      <Section title="Ended recently" rows={feed.ended} />
-      <Section title="Live now" rows={feed.live} />
+      <div className="grid items-start gap-4 lg:grid-cols-2">
+        <Section title="Ended recently" rows={feed.ended} />
+        <Section title="Live now" rows={feed.live} />
+      </div>
       {feed.empty ? <p className="rounded-xl bg-white/[0.06] px-3 py-3 text-sm text-[#b3a694]">{feed.empty}</p> : null}
       {feed.notice ? <p className="rounded-xl border border-dashed border-white/15 px-3 py-3 text-xs leading-relaxed text-[#b3a694]">{feed.notice}</p> : null}
       {feed.more.length > 0 ? (

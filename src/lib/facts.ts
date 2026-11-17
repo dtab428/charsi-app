@@ -19,7 +19,7 @@ export function pickVariant(modifiers: string[], variants: VariantQuote[]): Vari
     });
     if (hit) return hit;
   }
-  for (const key of ["holofoil", "normal", "unlimitedHolofoil", "reverseHolofoil"]) {
+  for (const key of ["normal", "holofoil", "unlimitedHolofoil", "reverseHolofoil"]) {
     const hit = variants.find((variant) => variant.key === key && variant.market != null);
     if (hit) return hit;
   }

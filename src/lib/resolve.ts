@@ -91,6 +91,26 @@ function findSet(catalog: IndexedCatalog, tokens: string[], number: string | nul
   return { setIds: best?.setIds ?? [], consumed: best?.consumed ?? new Set<number>() };
 }
 
+function fuzzySetWord(catalog: IndexedCatalog, token: string): { word: string; sets: string[] } | null {
+  if (token.length < 5 || catalog.tokenIndex.has(token)) return null;
+  const max = token.length >= 8 ? 2 : 1;
+  let best: { distance: number; word: string; sets: string[] } | null = null;
+  let runner = max + 1;
+  for (const alias of catalog.aliases) {
+    if (alias.words.length !== 1) continue;
+    const word = alias.words[0] ?? "";
+    if (!word || word[0] !== token[0] || Math.abs(word.length - token.length) > max) continue;
+    const distance = levenshtein(token, word, max);
+    if (distance === 0 || distance > max) continue;
+    if (!best || distance < best.distance) {
+      runner = best ? best.distance : runner;
+      best = { distance, word, sets: alias.sets };
+    } else if (distance < runner) runner = distance;
+  }
+  if (!best || best.distance === runner) return null;
+  return { word: best.word, sets: best.sets };
+}
+
 function nameTokensOf(line: ParsedLine, consumed: Set<number>): string[] {
   return line.tokens.filter((token, index) => {
     if (consumed.has(index)) return false;
@@ -189,7 +209,19 @@ function notesFor(line: ParsedLine): string[] {
 }
 
 function resolveLine(catalog: IndexedCatalog, line: ParsedLine): ResolveItem {
-  const located = findSet(catalog, line.tokens, line.number);
+  let located = findSet(catalog, line.tokens, line.number);
+  const setCorrections: string[] = [];
+  if (located.setIds.length === 0) {
+    for (let index = 0; index < line.tokens.length; index += 1) {
+      const token = line.tokens[index] ?? "";
+      if (line.number && token === line.number) continue;
+      const hit = fuzzySetWord(catalog, token);
+      if (!hit) continue;
+      located = { setIds: hit.sets, consumed: new Set([index]) };
+      setCorrections.push(`${token} → ${hit.word}`);
+      break;
+    }
+  }
   const nameTokens = nameTokensOf(line, located.consumed);
   const base = {
     raw: line.raw,
@@ -239,7 +271,7 @@ function resolveLine(catalog: IndexedCatalog, line: ParsedLine): ResolveItem {
     ...base,
     status,
     confidence: Math.max(0, Math.min(1, best.score)),
-    corrections: correctionsFor(winner, nameTokens),
+    corrections: [...setCorrections, ...correctionsFor(winner, nameTokens)],
     card: toPublic(catalog, winner),
     alternatives,
   };

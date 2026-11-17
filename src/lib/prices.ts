@@ -180,6 +180,102 @@ function hasSale(sales: EuroSales): boolean {
   return sales.trend != null || sales.avg1 != null || sales.avg7 != null || sales.avg30 != null || sales.low != null;
 }
 
+function collectorKey(number: string, printed: number): string | null {
+  const bare = /^0*(\d+)$/.exec(number);
+  if (!bare || printed <= 0) return null;
+  return `${Number(bare[1])}/${printed}`;
+}
+
+function productNumberKey(value: string | undefined): string | null {
+  const match = /(\d+)\s*\/\s*(\d+)/.exec(value ?? "");
+  if (!match) return null;
+  return `${Number(match[1])}/${Number(match[2])}`;
+}
+
+function tcgplayerImage(productId: number): string {
+  return `https://tcgplayer-cdn.tcgplayer.com/product/${productId}_200w.jpg`;
+}
+
+async function holoSibling(cardId: string): Promise<VariantQuote | null> {
+  const catalog = getCatalog();
+  const card = catalog.cards.find((entry) => entry.id === cardId);
+  const set = card ? catalog.sets.get(card.set) : undefined;
+  if (!card || !set) return null;
+  const wanted = collectorKey(card.num, set.printed);
+  if (!wanted) return null;
+  const payload = await fetchJson(
+    `https://mp-search-api.tcgplayer.com/v1/search/request?q=${encodeURIComponent(`${card.name} ${card.num}/${set.printed}`)}&isList=false`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        algorithm: "sales_synonym_v2",
+        from: 0,
+        size: 12,
+        filters: { term: { productLineName: ["pokemon"] }, match: {} },
+        listingSearch: { filters: { term: {}, range: {}, match: {} } },
+        context: { cart: {}, shippingCountry: "US" },
+        settings: { useFuzzySearch: true },
+        sort: {},
+      }),
+    },
+  );
+  const results = record(payload)?.results;
+  const rows = Array.isArray(results) && record(results[0]) && Array.isArray(record(results[0])?.results) ? (record(results[0])?.results as unknown[]) : [];
+  const name = card.name.toLowerCase();
+  const setName = set.name.toLowerCase();
+  const hits = rows.flatMap((row) => {
+    const product = record(row);
+    if (!product) return [];
+    const productId = typeof product.productId === "number" ? product.productId : null;
+    const productName = text(product.productName)?.toLowerCase() ?? "";
+    const listedSet = text(product.setName)?.toLowerCase() ?? "";
+    const number = productNumberKey(text(record(product.customAttributes)?.number) ?? undefined);
+    if (!productId || product.foilOnly !== true || !productName.includes(name) || number !== wanted) return [];
+    if (listedSet !== setName && listedSet !== "deck exclusives") return [];
+    return [productId];
+  });
+  for (const productId of hits) {
+    const points = await fetchJson(`https://mpapi.tcgplayer.com/v2/product/${productId}/pricepoints`);
+    const foil = (Array.isArray(points) ? points : []).find((entry) => record(entry)?.printingType === "Foil");
+    const market = amount(record(foil)?.marketPrice);
+    if (market == null) continue;
+    return {
+      key: "holofoil",
+      label: variantLabel("holofoil"),
+      market,
+      low: amount(record(foil)?.lowPrice),
+      mid: amount(record(foil)?.listedMedianPrice),
+      high: null,
+      currency: "USD",
+      productUrl: `https://www.tcgplayer.com/product/${productId}`,
+      image: tcgplayerImage(productId),
+    };
+  }
+  return null;
+}
+
+async function attachHoloSiblings(ids: string[], source: Map<string, PriceQuote | null>): Promise<void> {
+  const needing = ids.filter((id) => {
+    const quote = source.get(id);
+    return quote && !quote.variants.some((variant) => variant.key === "holofoil" || variant.key === "unlimitedHolofoil");
+  });
+  for (const group of chunk(needing, 4)) {
+    await Promise.all(
+      group.map(async (id) => {
+        const quote = source.get(id);
+        if (!quote) return;
+        try {
+          const sibling = await holoSibling(id);
+          if (sibling) quote.variants.push(sibling);
+        } catch {
+          /* a missing holo sibling leaves the finishes TCGdex already listed */
+        }
+      }),
+    );
+  }
+}
+
 function printingKey(raw: string): string {
   return raw.replace(/-([a-z0-9])/g, (_, char: string) => char.toUpperCase());
 }
@@ -205,6 +301,7 @@ function fromTcgdex(card: Record<string, unknown>): PriceQuote | null {
         mid: amount(quote.midPrice),
         high: amount(quote.highPrice),
         currency: "USD",
+        productUrl: productId ? `https://www.tcgplayer.com/product/${productId}` : null,
       });
     }
   }
@@ -370,6 +467,7 @@ export async function quotesFor(ids: string[]): Promise<Record<string, PriceQuot
       }
     }
   }
+  await attachHoloSiblings(missing, source);
   const fresh: Record<string, PriceQuote | null> = {};
   for (const id of missing) {
     const quote = source.get(id) ?? null;

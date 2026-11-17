@@ -77,6 +77,8 @@ export type VariantQuote = {
   mid: number | null;
   high: number | null;
   currency: string;
+  productUrl?: string | null;
+  image?: string | null;
 };
 
 export type TrendPoint = {

@@ -1,6 +1,6 @@
 const VARIANT_LABELS: Record<string, string> = {
-  normal: "Normal",
-  holofoil: "Holofoil",
+  normal: "Non-holo",
+  holofoil: "Holo",
   reverseHolofoil: "Reverse holo",
   "1stEditionHolofoil": "1st edition holo",
   "1stEditionNormal": "1st edition",
@@ -11,6 +11,23 @@ const VARIANT_LABELS: Record<string, string> = {
   firstEditionShadowlessHolofoil: "1st edition shadowless",
   unlimitedShadowlessHolofoil: "Unlimited shadowless",
 };
+
+const FINISH_ORDER = ["normal", "holofoil", "reverseHolofoil"];
+
+export function finishRank(key: string): number {
+  const index = FINISH_ORDER.indexOf(key);
+  return index === -1 ? FINISH_ORDER.length : index;
+}
+
+export type Finish = "normal" | "holo" | "reverse";
+
+export function finishOf(key: string | null | undefined): Finish | null {
+  if (!key) return null;
+  if (/reverse/i.test(key)) return "reverse";
+  if (/holo/i.test(key)) return "holo";
+  if (key === "normal") return "normal";
+  return null;
+}
 
 export function variantLabel(key: string): string {
   const known = VARIANT_LABELS[key];

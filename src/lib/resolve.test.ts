@@ -57,6 +57,15 @@ test("asks for a pick when several Pikachu 025 printings fit", () => {
   assert.ok(item.alternatives.length >= 1);
 });
 
+test("corrects a misspelled set and still offers the printings", () => {
+  const item = one("umbreon skyridg");
+  assert.equal(item.status, "ambiguous");
+  assert.equal(item.card?.setId, "ecard3");
+  assert.ok(item.corrections.some((correction) => correction.includes("skyridge")));
+  const ids = [item.card?.id, ...item.alternatives.map((alt) => alt.id)].sort();
+  assert.deepEqual(ids, ["ecard3-32", "ecard3-H30"]);
+});
+
 test("leaves a nonsense line unmatched", () => {
   const item = one("blorbo zzz 999");
   assert.equal(item.status, "unmatched");
