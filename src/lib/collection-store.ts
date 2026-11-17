@@ -19,44 +19,45 @@ export type NewEntry = Omit<CollectionEntry, "id" | "addedAt">;
 
 const MAX_ENTRIES = 2000;
 const MAX_QUANTITY = 999;
-const DIR = path.join(process.cwd(), ".data", "collections");
+export type Bucket = "collections" | "wishlists";
 const queues = new Map<string, Promise<unknown>>();
 
-function fileFor(userId: string): string {
+function fileFor(userId: string, bucket: Bucket): string {
   if (!/^[a-z0-9]{1,32}$/.test(userId)) throw new Error("bad user");
-  return path.join(DIR, `${userId}.json`);
+  return path.join(process.cwd(), ".data", bucket, `${userId}.json`);
 }
 
-async function read(userId: string): Promise<CollectionEntry[]> {
+async function read(userId: string, bucket: Bucket): Promise<CollectionEntry[]> {
   try {
-    const parsed = JSON.parse(await fs.readFile(fileFor(userId), "utf8")) as unknown;
+    const parsed = JSON.parse(await fs.readFile(fileFor(userId, bucket), "utf8")) as unknown;
     return Array.isArray(parsed) ? (parsed as CollectionEntry[]) : [];
   } catch {
     return [];
   }
 }
 
-async function write(userId: string, entries: CollectionEntry[]): Promise<void> {
-  await fs.mkdir(DIR, { recursive: true });
-  const target = fileFor(userId);
+async function write(userId: string, bucket: Bucket, entries: CollectionEntry[]): Promise<void> {
+  const target = fileFor(userId, bucket);
+  await fs.mkdir(path.dirname(target), { recursive: true });
   const temp = `${target}.${process.pid}.${crypto.randomUUID()}.tmp`;
   await fs.writeFile(temp, JSON.stringify(entries), { mode: 0o600 });
   await fs.rename(temp, target);
 }
 
-function serial<T>(userId: string, task: () => Promise<T>): Promise<T> {
-  const run = (queues.get(userId) ?? Promise.resolve()).catch(() => undefined).then(task);
-  queues.set(userId, run);
+function serial<T>(userId: string, bucket: Bucket, task: () => Promise<T>): Promise<T> {
+  const key = `${bucket}:${userId}`;
+  const run = (queues.get(key) ?? Promise.resolve()).catch(() => undefined).then(task);
+  queues.set(key, run);
   return run;
 }
 
-export function listCollection(userId: string): Promise<CollectionEntry[]> {
-  return read(userId);
+export function listCollection(userId: string, bucket: Bucket = "collections"): Promise<CollectionEntry[]> {
+  return read(userId, bucket);
 }
 
-export function addToCollection(userId: string, entry: NewEntry): Promise<CollectionEntry[]> {
-  return serial(userId, async () => {
-    const entries = await read(userId);
+export function addToCollection(userId: string, entry: NewEntry, bucket: Bucket = "collections"): Promise<CollectionEntry[]> {
+  return serial(userId, bucket, async () => {
+    const entries = await read(userId, bucket);
     const match = entries.find(
       (current) => current.cardId === entry.cardId && current.kind === entry.kind && current.company === entry.company && current.grade === entry.grade && (current.printing ?? null) === entry.printing,
     );
@@ -66,25 +67,25 @@ export function addToCollection(userId: string, entry: NewEntry): Promise<Collec
       if (entries.length >= MAX_ENTRIES) throw new Error("full");
       entries.push({ ...entry, quantity: Math.min(MAX_QUANTITY, entry.quantity), id: crypto.randomUUID(), addedAt: Date.now() });
     }
-    await write(userId, entries);
+    await write(userId, bucket, entries);
     return entries;
   });
 }
 
-export function setQuantity(userId: string, id: string, quantity: number): Promise<CollectionEntry[]> {
-  return serial(userId, async () => {
-    const entries = await read(userId);
+export function setQuantity(userId: string, id: string, quantity: number, bucket: Bucket = "collections"): Promise<CollectionEntry[]> {
+  return serial(userId, bucket, async () => {
+    const entries = await read(userId, bucket);
     const entry = entries.find((current) => current.id === id);
     if (entry) entry.quantity = Math.max(1, Math.min(MAX_QUANTITY, quantity));
-    await write(userId, entries);
+    await write(userId, bucket, entries);
     return entries;
   });
 }
 
-export function removeFromCollection(userId: string, id: string): Promise<CollectionEntry[]> {
-  return serial(userId, async () => {
-    const entries = (await read(userId)).filter((current) => current.id !== id);
-    await write(userId, entries);
+export function removeFromCollection(userId: string, id: string, bucket: Bucket = "collections"): Promise<CollectionEntry[]> {
+  return serial(userId, bucket, async () => {
+    const entries = (await read(userId, bucket)).filter((current) => current.id !== id);
+    await write(userId, bucket, entries);
     return entries;
   });
 }

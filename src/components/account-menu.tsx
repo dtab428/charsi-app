@@ -58,6 +58,9 @@ export function AccountMenu() {
         <Pressable href="/collection" sameTab className="inline-flex h-8 items-center rounded-full border border-white/15 px-3 text-sm hover:bg-white/10">
           My Collection
         </Pressable>
+        <Pressable href="/wishlist" sameTab className="inline-flex h-8 items-center rounded-full border border-white/15 px-3 text-sm hover:bg-white/10">
+          My Wishlist
+        </Pressable>
         <Button type="button" size="sm" onClick={() => toast.error("Discord isn’t connected yet. Add DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, and SESSION_SECRET to .env.local. The README lists the three steps.")}>
           Sign in with Discord
         </Button>
@@ -69,6 +72,9 @@ export function AccountMenu() {
     <div className="flex flex-wrap items-center gap-2">
       <Pressable href="/collection" sameTab className="inline-flex h-8 items-center rounded-full border border-white/15 px-3 text-sm hover:bg-white/10">
         My Collection
+      </Pressable>
+      <Pressable href="/wishlist" sameTab className="inline-flex h-8 items-center rounded-full border border-white/15 px-3 text-sm hover:bg-white/10">
+        My Wishlist
       </Pressable>
       {me.user?.provider === "discord" ? (
         <div className="flex items-center gap-2">

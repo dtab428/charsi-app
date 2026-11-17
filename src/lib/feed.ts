@@ -10,11 +10,11 @@ export type Filters = { source: SourceFilter; condition: Condition; grade: strin
 
 export const COMPANIES: Company[] = ["PSA", "BGS", "CGC", "TAG", "SGC"];
 export const GRADES: Record<Company, string[]> = {
-  PSA: ["10", "9", "8"],
-  BGS: ["10", "9.5", "9", "8"],
-  CGC: ["10", "9.5", "9", "8"],
-  TAG: ["10", "9.5", "9", "8"],
-  SGC: ["10", "9.5", "9", "8"],
+  PSA: ["10", "9", "8", "7"],
+  BGS: ["10", "9.5", "9", "8.5", "8", "7.5", "7"],
+  CGC: ["10", "9.5", "9", "8.5", "8", "7.5", "7"],
+  TAG: ["10", "9.5", "9", "8.5", "8", "7.5", "7"],
+  SGC: ["10", "9.5", "9", "8.5", "8", "7.5", "7"],
 };
 export const DEFAULT_FILTERS: Filters = { source: "all", condition: "raw", grade: "10" };
 

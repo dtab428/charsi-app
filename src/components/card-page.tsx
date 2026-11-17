@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { CardPicture } from "@/components/card-picture";
+import { Slab } from "@/components/slab";
 import { useEffect, useState } from "react";
 import { SiteHeader } from "@/components/account-menu";
 import { AddToCollection } from "@/components/add-to-collection";
@@ -81,6 +82,7 @@ export function CardPage({ card, printing }: { card: PublicCard; printing: strin
   const variants = [...(quote?.variants ?? [])].sort((a, b) => finishRank(a.key) - finishRank(b.key));
   const selected = findPrinting(variants, printing) ?? pickVariant([], variants);
   const activeKey = selected?.key ?? null;
+  const finish = finishOf(activeKey) ?? finishOf(printing);
   const auctions = lanes?.auctions ?? emptyLane(card, "auction");
   const buyNow = lanes?.buyNow ?? emptyLane(card, "bin");
 
@@ -110,7 +112,14 @@ export function CardPage({ card, printing }: { card: PublicCard; printing: strin
         </Link>
         <div className="grid gap-6 lg:grid-cols-[minmax(0,19rem)_minmax(0,1fr)]">
           <aside className="flex flex-col gap-4">
-            <CardPicture src={selected?.image || card.large || card.small} alt={card.name} finish={finishOf(activeKey)} width={480} height={670} priority className="rounded-xl bg-[#2a241e]" />
+            {filters.condition === "raw" ? (
+              <CardPicture src={selected?.image || card.large || card.small} alt={card.name} finish={finish} stamp={card.setCode || card.setName} width={480} height={670} priority className="rounded-xl bg-[#2a241e]" />
+            ) : (
+              <Slab company={filters.condition} grade={filters.grade}>
+                <CardPicture src={selected?.image || card.large || card.small} alt={card.name} finish={finish} stamp={card.setCode || card.setName} width={480} height={670} priority className="rounded-xl bg-[#2a241e]" />
+              </Slab>
+            )}
+            {finish === "reverse" ? <p className="text-center text-[10px] leading-tight text-[#b3a694]">Placed stamp. Not a photo of the stamped card.</p> : null}
             <AddToCollection
               card={card}
               printing={activeKey ? printingSlug(activeKey) : null}

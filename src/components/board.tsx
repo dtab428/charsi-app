@@ -1,6 +1,7 @@
 "use client";
 
 import { CardPicture } from "@/components/card-picture";
+import { Slab } from "@/components/slab";
 import { Button } from "@/components/ui/button";
 import { AddToCollection } from "@/components/add-to-collection";
 import { CardMarket } from "@/components/market";
@@ -17,9 +18,8 @@ export type DeskItem = ResolveItem & { key: string; included: boolean };
 const emptyPin: Pin = { source: "discord", price: "", note: "" };
 
 function printed(card: PublicCard): string {
-  const code = card.setCode || card.setName;
   const number = card.printedTotal ? `${card.number}/${card.printedTotal}` : card.number;
-  return `${code} · ${number}`;
+  return `${card.setName} · ${number}`;
 }
 
 function legal(card: PublicCard): string {
@@ -29,10 +29,29 @@ function legal(card: PublicCard): string {
   return "Unlimited";
 }
 
-function Face({ card, src, finish, onZoom }: { card: PublicCard; src: string; finish: ReturnType<typeof finishOf>; onZoom: (card: PublicCard) => void }) {
+function Face({
+  card,
+  src,
+  finish,
+  slab,
+  onZoom,
+}: {
+  card: PublicCard;
+  src: string;
+  finish: ReturnType<typeof finishOf>;
+  slab: { company: string; grade: string } | null;
+  onZoom: (card: PublicCard) => void;
+}) {
+  const picture = <CardPicture src={src} alt={card.name} finish={finish} stamp={card.setCode || card.setName} width={245} height={342} />;
   return (
     <Pressable onClick={() => onZoom(card)} className="block w-full rounded-md text-left">
-      <CardPicture src={src} alt={card.name} finish={finish} width={245} height={342} />
+      {slab ? (
+        <Slab company={slab.company} grade={slab.grade}>
+          {picture}
+        </Slab>
+      ) : (
+        picture
+      )}
     </Pressable>
   );
 }
@@ -93,6 +112,7 @@ function CardDesk({
   onCopy,
   onSave,
   onZoom,
+  columns,
 }: {
   item: DeskItem;
   quote: PriceQuote | null | undefined;
@@ -107,6 +127,7 @@ function CardDesk({
   onCopy: (card: PublicCard) => void;
   onSave: (card: PublicCard) => void;
   onZoom: (card: PublicCard) => void;
+  columns: 1 | 2;
 }) {
   const card = item.card;
   const [activeKey, setActiveKey] = useState<string | null>(null);
@@ -119,9 +140,12 @@ function CardDesk({
   return (
     <li className="rounded-[24px] border border-white/10 bg-[#1c1814]/80 p-3 sm:p-5">
       <div className="flex gap-3 sm:gap-5">
-        <div className="w-24 shrink-0 self-start sm:w-40 lg:w-48">
+        <div className={columns === 2 ? "w-24 shrink-0 self-start sm:w-32" : "w-24 shrink-0 self-start sm:w-40 lg:w-48"}>
           {card ? (
-            <Face card={card} src={picture} finish={finish} onZoom={onZoom} />
+            <div>
+              <Face card={card} src={picture} finish={finish} slab={filters.condition === "raw" ? null : { company: filters.condition, grade: filters.grade }} onZoom={onZoom} />
+              {finish === "reverse" ? <p className="mt-1 text-center text-[10px] leading-tight text-[#b3a694]">Placed stamp. Not a photo of the stamped card.</p> : null}
+            </div>
           ) : (
             <div className="flex aspect-[63/88] items-end rounded-md border border-dashed border-white/15 p-2 text-xs text-[#b3a694]">{item.raw}</div>
           )}
@@ -140,7 +164,7 @@ function CardDesk({
               </h3>
               {item.quantity > 1 ? <span className="text-sm text-[#d4a574]">×{item.quantity}</span> : null}
             </div>
-            {card ? <p className="mt-1 text-xs tracking-[0.14em] text-[#b3a694] uppercase">{printed(card)} · {card.rarity}</p> : null}
+            {card ? <p className="mt-1 text-xs text-[#b3a694]">{printed(card)} · {card.rarity}</p> : null}
           </div>
           <p className="mt-1 text-xs text-[#d4a574]/90">Heard “{item.raw}”</p>
           {item.corrections.map((correction) => (
@@ -154,9 +178,9 @@ function CardDesk({
           {item.alternatives.length > 0 ? (
             <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
               {item.alternatives.map((alt) => (
-                <Pressable key={alt.id} onClick={() => onChoose(item.key, alt)} className="w-12 shrink-0 rounded-sm text-left">
+                <Pressable key={alt.id} onClick={() => onChoose(item.key, alt)} className="w-24 shrink-0 rounded-sm text-left">
                   <CardPicture src={alt.small} alt="" finish={null} width={56} height={78} className="rounded-sm bg-[#2a241e]" />
-                  <span className="mt-1 block truncate text-[10px] text-[#b3a694]">{alt.setCode || alt.number}</span>
+                  <span className="mt-1 block text-[10px] leading-tight text-[#b3a694]">{alt.setName}</span>
                 </Pressable>
               ))}
             </div>
@@ -203,6 +227,7 @@ export function Board({
   onCopy,
   onSave,
   onZoom,
+  columns,
 }: {
   items: DeskItem[];
   quotes: Record<string, PriceQuote | null>;
@@ -217,9 +242,10 @@ export function Board({
   onCopy: (card: PublicCard) => void;
   onSave: (card: PublicCard) => void;
   onZoom: (card: PublicCard) => void;
+  columns: 1 | 2;
 }) {
   return (
-    <ul className="flex flex-col gap-4">
+    <ul className={columns === 2 ? "grid items-start gap-4 xl:grid-cols-2" : "flex flex-col gap-4"}>
       {items.map((item) => {
         const card = item.card;
         return (
@@ -238,6 +264,7 @@ export function Board({
             onCopy={onCopy}
             onSave={onSave}
             onZoom={onZoom}
+            columns={columns}
           />
         );
       })}

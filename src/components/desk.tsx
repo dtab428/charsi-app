@@ -34,6 +34,7 @@ type Saved = {
   title?: string;
   pins?: Record<string, Pin>;
   filters?: Filters;
+  columns?: 1 | 2;
 };
 
 function validFilters(value: Filters | undefined): Filters {
@@ -52,6 +53,7 @@ export function Desk() {
   const [text, setText] = useState("");
   const [title, setTitle] = useState("");
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+  const [columns, setColumns] = useState<1 | 2>(1);
   const [items, setItems] = useState<DeskItem[]>([]);
   const [pulling, setPulling] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,6 +80,7 @@ export function Desk() {
       setTitle(saved.title ?? "");
       setPins(saved.pins ?? {});
       setFilters(validFilters(saved.filters));
+      setColumns(saved.columns === 2 ? 2 : 1);
       if (saved.text?.trim()) void pull(saved.text);
     } catch {
       localStorage.removeItem(STORAGE);
@@ -87,9 +90,9 @@ export function Desk() {
   }, []);
 
   useEffect(() => {
-    const payload: Saved = { text, title, pins, filters };
+    const payload: Saved = { text, title, pins, filters, columns };
     localStorage.setItem(STORAGE, JSON.stringify(payload));
-  }, [text, title, pins, filters]);
+  }, [text, title, pins, filters, columns]);
 
   async function loadPrices(ids: string[]) {
     if (ids.length === 0) return;
@@ -357,7 +360,7 @@ export function Desk() {
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-[1200px] flex-col gap-8 px-4 py-6">
+      <main className={`mx-auto flex w-full flex-col gap-8 px-4 py-6 ${columns === 2 ? "max-w-[1480px]" : "max-w-[1200px]"}`}>
         <section className="rounded-[28px] bg-[#efe6d4] p-5 text-[#241c14] shadow-[0_24px_60px_rgba(0,0,0,0.35)] sm:p-7">
           <div className="flex flex-wrap items-baseline justify-between gap-3">
             <h2 className="font-serif text-3xl italic">The list</h2>
@@ -455,7 +458,18 @@ export function Desk() {
                 </Button>
               </div>
             </div>
-            <MarketFilters filters={filters} onChange={setFilters} />
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <MarketFilters filters={filters} onChange={setFilters} />
+              <div className="hidden items-center gap-1.5 lg:flex" role="group" aria-label="Cards per row">
+                <span className="text-[10px] tracking-[0.14em] text-[#b3a694] uppercase">Per row</span>
+                <Button type="button" size="sm" variant={columns === 1 ? "default" : "outline"} aria-pressed={columns === 1} onClick={() => setColumns(1)}>
+                  One
+                </Button>
+                <Button type="button" size="sm" variant={columns === 2 ? "default" : "outline"} aria-pressed={columns === 2} onClick={() => setColumns(2)}>
+                  Two
+                </Button>
+              </div>
+            </div>
             <Board
               items={items}
               quotes={quotes}
@@ -470,12 +484,13 @@ export function Desk() {
               onCopy={(card) => void copyCard(card)}
               onSave={(card) => void saveCard(card)}
               onZoom={setZoom}
+              columns={columns}
             />
           </section>
         ) : null}
       </main>
 
-      <footer className="mx-auto max-w-[1200px] px-4 pt-4 pb-10 text-xs leading-relaxed text-[#b3a694]">
+      <footer className={`mx-auto px-4 pt-4 pb-10 text-xs leading-relaxed text-[#b3a694] ${columns === 2 ? "max-w-[1480px]" : "max-w-[1200px]"}`}>
         Card data and images are © Pokémon, Nintendo, Creatures, and GAME FREAK. Charsi isn’t affiliated with them, or with eBay, TCGplayer, Cardmarket, Goldin, Facebook, or Discord. Prices come from TCGdex (TCGplayer and Cardmarket) unless a Scrydex key is connected. eBay listings load with an eBay application key. Goldin, Facebook Marketplace, and Discord are links and pins, not a scrape.
       </footer>
 

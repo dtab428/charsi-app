@@ -4,18 +4,24 @@ import Image from "next/image";
 import { useState } from "react";
 import type { Finish } from "@/lib/format";
 
-function Mark({ finish }: { finish: Finish | null }) {
-  if (finish === "reverse") {
-    return (
-      <>
-        <span className="pointer-events-none absolute inset-0 rounded-md ring-2 ring-[#d4a574] ring-dashed" />
-        <span className="pointer-events-none absolute inset-x-1.5 bottom-1.5 rounded-md bg-[#14110e]/92 px-2 py-1.5 text-center">
-          <span className="block text-[10px] font-medium tracking-[0.14em] text-[#d4a574] uppercase">Reverse holo</span>
-          <span className="mt-0.5 block text-[10px] leading-tight text-[#f3ecdf]">Set stamp. This scan is the shared picture.</span>
-        </span>
-      </>
-    );
-  }
+function Stamp({ label }: { label: string }) {
+  const text = (label || "R").slice(0, 4).toUpperCase();
+  return (
+    <span className="pointer-events-none absolute" style={{ left: "68%", top: "33%", width: "18%" }} title="Placed set stamp. Not a photo of the stamped card.">
+      <svg viewBox="0 0 64 64" className="h-auto w-full drop-shadow-[0_1px_1px_rgba(0,0,0,0.65)]" aria-hidden>
+        <circle cx="32" cy="32" r="30" fill="#c6a15b" />
+        <circle cx="32" cy="32" r="24" fill="none" stroke="#5c4316" strokeWidth="1.5" />
+        <circle cx="32" cy="32" r="27" fill="none" stroke="#f3e2b0" strokeWidth="1" />
+        <text x="32" y="36" textAnchor="middle" fontSize={text.length > 3 ? "9" : "11"} fontFamily="sans-serif" fontWeight="700" fill="#3a2a0c">
+          {text}
+        </text>
+      </svg>
+    </span>
+  );
+}
+
+function Mark({ finish, stamp }: { finish: Finish | null; stamp: string }) {
+  if (finish === "reverse") return <Stamp label={stamp} />;
   if (finish === "holo") {
     return (
       <>
@@ -34,6 +40,7 @@ export function CardPicture({
   src,
   alt,
   finish,
+  stamp = "",
   width,
   height,
   priority,
@@ -42,6 +49,7 @@ export function CardPicture({
   src: string;
   alt: string;
   finish: Finish | null;
+  stamp?: string;
   width: number;
   height: number;
   priority?: boolean;
@@ -71,7 +79,7 @@ export function CardPicture({
           }
         }}
       />
-      <Mark finish={finish} />
+      <Mark finish={finish} stamp={stamp} />
     </span>
   );
 }

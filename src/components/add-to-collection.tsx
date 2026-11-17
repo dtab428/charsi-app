@@ -38,17 +38,18 @@ export function AddToCollection({
   const [company, setCompany] = useState<Company>(initialCondition === "raw" ? "PSA" : initialCondition);
   const [grade, setGrade] = useState(initialGrade);
   const [quantity, setQuantity] = useState(1);
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving] = useState<"collection" | "wishlist" | null>(null);
 
   function pickCompany(next: Company) {
     setCompany(next);
     if (!GRADES[next].includes(grade)) setGrade(GRADES[next][0]);
   }
 
-  async function save() {
-    setSaving(true);
+  async function save(destination: "collection" | "wishlist") {
+    setSaving(destination);
+    const where = destination === "collection" ? "My Collection" : "My Wishlist";
     try {
-      const response = await fetch("/api/collection", {
+      const response = await fetch(destination === "collection" ? "/api/collection" : "/api/wishlist", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ cardId: card.id, kind, company: kind === "graded" ? company : null, grade: kind === "graded" ? grade : null, printing, quantity }),
@@ -62,8 +63,9 @@ export function AddToCollection({
         toast.error(payload.error ?? "That didn’t save.");
         return;
       }
-      toast.success(`${card.name} added to My Collection.`, {
-        action: { label: "Open", onClick: () => router.push("/collection") },
+      const label = kind === "graded" ? `${company} ${grade}` : "raw";
+      toast.success(`${label} ${card.name} saved to ${where}.`, {
+        action: { label: "Open", onClick: () => router.push(destination === "collection" ? "/collection" : "/wishlist") },
       });
       setOpen(false);
       setQuantity(1);
@@ -73,19 +75,19 @@ export function AddToCollection({
     } catch {
       toast.error("That didn’t save.");
     } finally {
-      setSaving(false);
+      setSaving(null);
     }
   }
 
   return (
     <>
       <Button type="button" size={size} variant={variant} onClick={() => setOpen(true)}>
-        Add to My Collection
+        Save a copy
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Add to My Collection</DialogTitle>
+            <DialogTitle>Save this copy</DialogTitle>
             <DialogDescription>
               {card.name} · {card.setName} {card.number}
               {printing ? ` · ${printingName(printing)}` : ""}
@@ -134,9 +136,14 @@ export function AddToCollection({
                 +
               </Button>
             </div>
-            <Button type="button" onClick={save} disabled={saving}>
-              {saving ? "Adding…" : kind === "graded" ? `Add ${company} ${grade}` : "Add raw copy"}
-            </Button>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button type="button" className="flex-1" onClick={() => void save("collection")} disabled={saving != null}>
+                {saving === "collection" ? "Adding…" : kind === "graded" ? `Collection · ${company} ${grade}` : "Collection · raw"}
+              </Button>
+              <Button type="button" variant="secondary" className="flex-1" onClick={() => void save("wishlist")} disabled={saving != null}>
+                {saving === "wishlist" ? "Adding…" : kind === "graded" ? `Wishlist · ${company} ${grade}` : "Wishlist · raw"}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
