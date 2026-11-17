@@ -150,11 +150,11 @@ export function MarketTickets({
       ),
 
       <Ticket key="auctions" kicker="eBay · auctions" title={auctions.status === "live" ? money(auctions.listings[0]?.price, auctions.listings[0]?.currency ?? "USD") : "Auctions"} href={auctions.searchUrl} action="Current auctions">
-        <Listings lane={auctions} empty="Open eBay for live auctions. A key lists the bids in this ticket." />
+        <Listings lane={auctions} empty="Opens eBay auctions, ending soonest first. A free eBay key lists the bids in this ticket." />
       </Ticket>,
 
       <Ticket key="bin" kicker="eBay · buy it now" title={buyNow.status === "live" ? money(buyNow.listings[0]?.price, buyNow.listings[0]?.currency ?? "USD") : "Buy it now"} href={buyNow.searchUrl} action="Buy it now">
-        <Listings lane={buyNow} empty="Open eBay for Buy It Now. A key lists those prices here." />
+        <Listings lane={buyNow} empty="Opens the newest Buy It Now listings. A free eBay key lists them here, newest first." />
       </Ticket>,
 
       <Ticket key="sales" kicker="Last sales" title={movement[0] ? percent(movement[0].percent) : quote?.cardmarket ? money(quote.cardmarket.avg7, "EUR") : "Sold"} href={ebaySearchUrl(card, "sold")} action="Ended recently">

@@ -8,8 +8,14 @@ export function searchPhrase(card: PublicCard): string {
 export function ebaySearchUrl(card: PublicCard, lane: "auction" | "bin" | "sold"): string {
   const url = new URL("https://www.ebay.com/sch/183454/i.html");
   url.searchParams.set("_nkw", searchPhrase(card));
-  if (lane === "auction") url.searchParams.set("LH_Auction", "1");
-  if (lane === "bin") url.searchParams.set("LH_BIN", "1");
+  if (lane === "auction") {
+    url.searchParams.set("LH_Auction", "1");
+    url.searchParams.set("_sop", "1");
+  }
+  if (lane === "bin") {
+    url.searchParams.set("LH_BIN", "1");
+    url.searchParams.set("_sop", "10");
+  }
   if (lane === "sold") {
     url.searchParams.set("LH_Sold", "1");
     url.searchParams.set("LH_Complete", "1");

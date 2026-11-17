@@ -101,7 +101,7 @@ async function search(card: PublicCard, kind: "auction" | "bin"): Promise<Listin
   url.searchParams.set("category_ids", "183454");
   url.searchParams.set("limit", "4");
   url.searchParams.set("filter", `buyingOptions:{${kind === "auction" ? "AUCTION" : "FIXED_PRICE"}}`);
-  url.searchParams.set("sort", kind === "auction" ? "endingSoonest" : "price");
+  url.searchParams.set("sort", kind === "auction" ? "endingSoonest" : "newlyListed");
   try {
     const response = await fetch(url, {
       signal: AbortSignal.timeout(10_000),
