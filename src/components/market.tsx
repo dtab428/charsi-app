@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Pressable } from "@/components/ui/ripple";
@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { pickVariant } from "@/lib/facts";
 import { buildFeed, COMPANIES, GRADES, type Company, type FeedRow, type FeedSource, type Filters, type SourceFilter } from "@/lib/feed";
 import { variantLabel } from "@/lib/format";
+import { cardHref, printingSlug } from "@/lib/printing";
 import type { ListingLane, Pin, PriceQuote, PublicCard } from "@/lib/types";
 
 const SOURCES: { id: SourceFilter; label: string }[] = [
@@ -181,6 +182,9 @@ export function CardMarket({
   pin,
   onPin,
   filters,
+  lockedKey,
+  hideDetailsLink,
+  onActiveKey,
 }: {
   card: PublicCard;
   modifiers: string[];
@@ -191,13 +195,22 @@ export function CardMarket({
   pin: Pin;
   onPin: (pin: Pin) => void;
   filters: Filters;
+  lockedKey?: string | null;
+  hideDetailsLink?: boolean;
+  onActiveKey?: (key: string | null) => void;
 }) {
-  const [variantKey, setVariantKey] = useState<string | null>(null);
+  const [pickedKey, setVariantKey] = useState<string | null>(null);
+  const variantKey = lockedKey ?? pickedKey;
   const [showMore, setShowMore] = useState(false);
   const feed = useMemo(
     () => buildFeed({ card, modifiers, quote, variantKey, auctions, buyNow, pin, filters }),
     [card, modifiers, quote, variantKey, auctions, buyNow, pin, filters],
   );
+
+  const activeKey = variantKey ?? pickVariant(modifiers, quote?.variants ?? [])?.key ?? null;
+  useEffect(() => {
+    onActiveKey?.(activeKey);
+  }, [activeKey, onActiveKey]);
 
   if (quote === undefined && loading) {
     return (
@@ -210,11 +223,10 @@ export function CardMarket({
   }
 
   const variants = filters.condition === "raw" ? quote?.variants.slice(0, 5) ?? [] : [];
-  const activeKey = variantKey ?? pickVariant(modifiers, quote?.variants ?? [])?.key ?? null;
 
   return (
     <div className="mt-4 flex flex-col gap-4">
-      {variants.length > 1 ? (
+      {variants.length > 1 && !lockedKey ? (
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="mr-1 text-[10px] tracking-[0.14em] text-[#b3a694] uppercase">Printing</span>
           {variants.map((entry) => (
@@ -222,6 +234,13 @@ export function CardMarket({
               {variantLabel(entry.key)}
             </Chip>
           ))}
+        </div>
+      ) : null}
+      {!hideDetailsLink ? (
+        <div>
+          <Pressable sameTab href={cardHref(card.id, activeKey ? printingSlug(activeKey) : null)} className="inline-flex items-center rounded-full border border-white/15 px-3 py-1.5 text-xs text-[#f3ecdf] hover:bg-white/10">
+            Open card page
+          </Pressable>
         </div>
       ) : null}
       <Section title="Ended recently" rows={feed.ended} />

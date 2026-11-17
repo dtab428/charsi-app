@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { AccountMenu } from "@/components/account-menu";
 import { MarketFilters } from "@/components/market";
 import { COMPANIES, DEFAULT_FILTERS, type Filters } from "@/lib/feed";
 import { marketAmount } from "@/lib/facts";
@@ -337,6 +338,7 @@ export function Desk() {
             <p className="mt-1 text-xs text-[#b3a694]">Lay a list down. Every card on it keeps its own numbers.</p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
+            <AccountMenu />
             <DropdownMenu>
               <DropdownMenuTrigger className="inline-flex h-8 items-center gap-1 rounded-full border border-white/15 px-3 text-sm">
                 Pokémon

@@ -71,8 +71,10 @@ export async function POST(request: Request) {
     return Response.json({ error: "Choose raw or graded." }, { status: 400 });
   }
 
+  const printing = typeof input.printing === "string" && /^[a-z0-9-]{1,40}$/.test(input.printing) ? input.printing : null;
+
   try {
-    const entries = await addToCollection(checked.user.id, { cardId, kind: input.kind, company, grade, quantity });
+    const entries = await addToCollection(checked.user.id, { cardId, kind: input.kind, company, grade, printing, quantity });
     return Response.json({ entries: view(entries) }, { headers: noStore });
   } catch {
     return Response.json({ error: "My Collection is full." }, { status: 409 });

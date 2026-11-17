@@ -2,8 +2,11 @@
 
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import { AddToCollection } from "@/components/add-to-collection";
 import { CardMarket } from "@/components/market";
 import { Pressable } from "@/components/ui/ripple";
+import { useState } from "react";
+import { cardHref, printingSlug } from "@/lib/printing";
 import type { Filters } from "@/lib/feed";
 import { emptyLane } from "@/lib/links";
 import type { ListingLane, Pin, PriceQuote, PublicCard, ResolveItem } from "@/lib/types";
@@ -47,12 +50,16 @@ function Actions({
   onRemove,
   onCopy,
   onSave,
+  printing,
+  filters,
 }: {
   item: DeskItem;
   onInclude: (key: string, included: boolean) => void;
   onRemove: (key: string) => void;
   onCopy: (card: PublicCard) => void;
   onSave: (card: PublicCard) => void;
+  printing: string | null;
+  filters: Filters;
 }) {
   return (
     <div className="mt-4 flex flex-wrap gap-2">
@@ -71,6 +78,7 @@ function Actions({
           Save
         </Button>
       ) : null}
+      {item.card ? <AddToCollection card={item.card} printing={printing} initialCondition={filters.condition} initialGrade={filters.grade} /> : null}
       <Button type="button" size="sm" variant="ghost" onClick={() => onRemove(item.key)}>
         Remove
       </Button>
@@ -108,6 +116,8 @@ function CardDesk({
   onZoom: (card: PublicCard) => void;
 }) {
   const card = item.card;
+  const [activeKey, setActiveKey] = useState<string | null>(null);
+  const printing = activeKey ? printingSlug(activeKey) : null;
   const auctions = card ? lanes?.auctions ?? emptyLane(card, "auction") : null;
   const buyNow = card ? lanes?.buyNow ?? emptyLane(card, "bin") : null;
 
@@ -124,7 +134,15 @@ function CardDesk({
         <div className="min-w-0 flex-1">
           <div className="min-w-0">
             <div className="flex items-baseline gap-2">
-              <h3 className="font-serif text-2xl leading-none tracking-tight sm:text-3xl">{card?.name ?? item.raw}</h3>
+              <h3 className="font-serif text-2xl leading-none tracking-tight sm:text-3xl">
+                {card ? (
+                  <a href={cardHref(card.id, printing)} className="hover:underline">
+                    {card.name}
+                  </a>
+                ) : (
+                  item.raw
+                )}
+              </h3>
               {item.quantity > 1 ? <span className="text-sm text-[#d4a574]">×{item.quantity}</span> : null}
             </div>
             {card ? <p className="mt-1 text-xs tracking-[0.14em] text-[#b3a694] uppercase">{printed(card)} · {card.rarity}</p> : null}
@@ -166,9 +184,10 @@ function CardDesk({
               pin={pin}
               onPin={onPin}
               filters={filters}
+              onActiveKey={setActiveKey}
             />
           ) : null}
-          <Actions item={item} onInclude={onInclude} onRemove={onRemove} onCopy={onCopy} onSave={onSave} />
+          <Actions item={item} onInclude={onInclude} onRemove={onRemove} onCopy={onCopy} onSave={onSave} printing={printing} filters={filters} />
         </div>
       </div>
     </li>

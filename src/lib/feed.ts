@@ -1,6 +1,6 @@
 import { pickVariant, saleAverages } from "./facts";
 import { endsLabel, listedLabel, money, quoteDate } from "./format";
-import { cardmarketSearchUrl, ebaySearchUrl, facebookSearchUrl, goldinSearchUrl, httpsHref, tcgplayerSearchUrl, type Grading } from "./links";
+import { altSearchUrl, cardmarketSearchUrl, fanaticsSearchUrl, ebaySearchUrl, facebookSearchUrl, goldinSearchUrl, httpsHref, tcgplayerSearchUrl, type Grading } from "./links";
 import type { Listing, ListingLane, Pin, PriceQuote, PublicCard } from "./types";
 
 export type SourceFilter = "all" | "tcgplayer" | "cardmarket" | "ebay";
@@ -247,6 +247,8 @@ export function buildFeed(input: {
       }
       more.push({ id: "facebook", source: "pin", badge: "Facebook", label: "Marketplace search", sub: "Opens Facebook. Not scanned.", value: "Open", when: null, href: facebookSearchUrl(card), link: true, at: 0, order: 8 });
       more.push({ id: "goldin", source: "pin", badge: "Goldin", label: "Goldin search", sub: "Auction house results", value: "Open", when: null, href: goldinSearchUrl(card), link: true, at: 0, order: 9 });
+      more.push({ id: "fanatics", source: "pin", badge: "Fanatics", label: "Fanatics Collect search", sub: "Opens a web search of their site. Not scanned.", value: "Open", when: null, href: fanaticsSearchUrl(card), link: true, at: 0, order: 10 });
+      more.push({ id: "alt", source: "pin", badge: "ALT", label: "ALT search", sub: "Opens a web search of their site. Not scanned.", value: "Open", when: null, href: altSearchUrl(card), link: true, at: 0, order: 11 });
     }
   } else {
     const grading: Grading = { company: filters.condition, grade: filters.grade };

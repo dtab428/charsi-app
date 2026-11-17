@@ -1,5 +1,6 @@
 import { getCatalog } from "./catalog";
 import { variantLabel } from "./format";
+import { recordSnapshots } from "./history";
 import type { CardmarketQuote, EuroSales, GradedQuote, PriceQuote, TrendPoint, VariantQuote } from "./types";
 
 type CacheEntry = { at: number; quote: PriceQuote | null };
@@ -369,11 +370,14 @@ export async function quotesFor(ids: string[]): Promise<Record<string, PriceQuot
       }
     }
   }
+  const fresh: Record<string, PriceQuote | null> = {};
   for (const id of missing) {
     const quote = source.get(id) ?? null;
     cache.set(id, { at: now, quote });
     result[id] = quote;
+    fresh[id] = quote;
   }
+  recordSnapshots(fresh);
   return result;
 }
 

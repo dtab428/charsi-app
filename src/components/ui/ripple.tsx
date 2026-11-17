@@ -60,8 +60,10 @@ export function Pressable({
   className,
   children,
   onClick,
+  sameTab,
 }: {
   href?: string;
+  sameTab?: boolean;
   className?: string;
   children: ReactNode;
   onClick?: () => void;
@@ -71,7 +73,7 @@ export function Pressable({
   const layer = <RippleLayer inks={ripple.inks} onDone={ripple.clear} />;
   if (href) {
     return (
-      <a href={href} target="_blank" rel="noreferrer" className={classNames} onPointerDown={ripple.onPointerDown} onKeyDown={ripple.onKeyDown}>
+      <a href={href} {...(sameTab ? {} : { target: "_blank", rel: "noreferrer" })} className={classNames} onPointerDown={ripple.onPointerDown} onKeyDown={ripple.onKeyDown}>
         {layer}
         {children}
       </a>

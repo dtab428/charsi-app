@@ -10,6 +10,7 @@ export type CollectionEntry = {
   kind: CollectionKind;
   company: string | null;
   grade: string | null;
+  printing: string | null;
   quantity: number;
   addedAt: number;
 };
@@ -57,7 +58,7 @@ export function addToCollection(userId: string, entry: NewEntry): Promise<Collec
   return serial(userId, async () => {
     const entries = await read(userId);
     const match = entries.find(
-      (current) => current.cardId === entry.cardId && current.kind === entry.kind && current.company === entry.company && current.grade === entry.grade,
+      (current) => current.cardId === entry.cardId && current.kind === entry.kind && current.company === entry.company && current.grade === entry.grade && (current.printing ?? null) === entry.printing,
     );
     if (match) {
       match.quantity = Math.min(MAX_QUANTITY, match.quantity + entry.quantity);

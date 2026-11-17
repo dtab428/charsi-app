@@ -46,6 +46,20 @@ export function goldinSearchUrl(card: PublicCard): string {
   return url.toString();
 }
 
+function siteSearchUrl(site: string, card: PublicCard): string {
+  const url = new URL("https://www.google.com/search");
+  url.searchParams.set("q", `site:${site} ${searchPhrase(card)}`);
+  return url.toString();
+}
+
+export function fanaticsSearchUrl(card: PublicCard): string {
+  return siteSearchUrl("fanaticscollect.com", card);
+}
+
+export function altSearchUrl(card: PublicCard): string {
+  return siteSearchUrl("alt.xyz", card);
+}
+
 export function facebookSearchUrl(card: PublicCard): string {
   const url = new URL("https://www.facebook.com/marketplace/search/");
   url.searchParams.set("query", searchPhrase(card));
