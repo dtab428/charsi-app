@@ -2,6 +2,8 @@
 
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import { Pressable } from "@/components/ui/ripple";
+import { Skeleton } from "@/components/ui/skeleton";
 import { MarketTickets } from "@/components/tickets";
 import { cardFacts } from "@/lib/facts";
 import { emptyLane } from "@/lib/links";
@@ -26,7 +28,7 @@ function legal(card: PublicCard): string {
 
 function Face({ card, onZoom }: { card: PublicCard; onZoom: (card: PublicCard) => void }) {
   return (
-    <button type="button" onClick={() => onZoom(card)} className="block w-full text-left">
+    <Pressable onClick={() => onZoom(card)} className="block w-full rounded-md text-left">
       <Image
         src={card.small || card.large}
         alt={card.name}
@@ -36,7 +38,7 @@ function Face({ card, onZoom }: { card: PublicCard; onZoom: (card: PublicCard) =
         className="rounded-md bg-[#2a241e]"
         style={{ width: "100%", height: "auto" }}
       />
-    </button>
+    </Pressable>
   );
 }
 
@@ -148,10 +150,10 @@ function CardDesk({
           {item.alternatives.length > 0 ? (
             <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
               {item.alternatives.map((alt) => (
-                <button key={alt.id} type="button" onClick={() => onChoose(item.key, alt)} className="w-12 shrink-0 text-left">
+                <Pressable key={alt.id} onClick={() => onChoose(item.key, alt)} className="w-12 shrink-0 rounded-sm text-left">
                   <Image src={alt.small} alt="" width={56} height={78} unoptimized className="rounded-sm" style={{ width: "100%", height: "auto" }} />
                   <span className="mt-1 block truncate text-[10px] text-[#b3a694]">{alt.setCode || alt.number}</span>
-                </button>
+                </Pressable>
               ))}
             </div>
           ) : null}
@@ -163,13 +165,22 @@ function CardDesk({
             </p>
           ) : null}
           {facts.length > 0 && !open ? (
+            loadingQuotes && quote == null ? (
+              <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
+                {facts.map((fact) => (
+                  <li key={fact.id}>
+                    <Skeleton className="h-[4.25rem] w-full rounded-xl bg-[#f4efe4]/12" />
+                  </li>
+                ))}
+              </ul>
+            ) : (
             <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
               {facts.map((fact) => (
                 <li key={fact.id} className="min-w-0">
                   {fact.href ? (
-                    <a href={fact.href} target="_blank" rel="noreferrer" className="block h-full rounded-xl bg-[#f4efe4] px-2.5 py-2 text-[#241c14] hover:bg-[#fffaf1]">
+                    <Pressable href={fact.href} className="block h-full rounded-xl bg-[#f4efe4] px-2.5 py-2 text-[#241c14] hover:bg-[#fffaf1]">
                       <FactBody kicker={fact.kicker} value={fact.value} detail={fact.detail} />
-                    </a>
+                    </Pressable>
                   ) : (
                     <div className="h-full rounded-xl bg-[#f4efe4] px-2.5 py-2 text-[#241c14]">
                       <FactBody kicker={fact.kicker} value={fact.value} detail={fact.detail} />
@@ -178,6 +189,7 @@ function CardDesk({
                 </li>
               ))}
             </ul>
+            )
           ) : null}
           <Actions item={item} onInclude={onInclude} onRemove={onRemove} onCopy={onCopy} onSave={onSave} />
         </div>
@@ -199,7 +211,7 @@ function CardDesk({
           </div>
           <div className="relative hidden h-[680px] xl:block">
             <div className="absolute top-1/2 left-1/2 z-10 w-[190px] -translate-x-1/2 -translate-y-1/2">
-              <button type="button" onClick={() => onZoom(card)} className="block w-full text-left">
+              <Pressable onClick={() => onZoom(card)} className="block w-full rounded-md text-left">
                 <Image
                   src={card.large || card.small}
                   alt={card.name}
@@ -209,7 +221,7 @@ function CardDesk({
                   className="rounded-md bg-[#2a241e]"
                   style={{ width: "100%", height: "auto" }}
                 />
-              </button>
+              </Pressable>
             </div>
             <MarketTickets
               layout="orbit"

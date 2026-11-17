@@ -96,9 +96,11 @@ export function Desk() {
       setQuoteSource(
         payload.source === "scrydex"
           ? "Raw and graded quotes from Scrydex."
-          : payload.source === "pokemon-tcg"
-            ? "TCGplayer and Cardmarket quotes, with the date they were last refreshed."
-            : "No quote came back. The market links still open.",
+          : payload.source === "tcgdex"
+            ? "TCGplayer market prices and Cardmarket sale averages, with the date they were last refreshed."
+            : payload.source === "pokemon-tcg"
+              ? "TCGplayer and Cardmarket quotes, with the date they were last refreshed."
+              : "No quote came back. The market links still open.",
       );
     } catch {
       setQuoteSource("Quotes didn’t refresh. The market links still open.");

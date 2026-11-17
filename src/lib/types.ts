@@ -94,18 +94,23 @@ export type GradedQuote = {
   currency: string;
 };
 
-export type CardmarketQuote = {
+export type EuroSales = {
   trend: number | null;
+  avg1: number | null;
   avg7: number | null;
   avg30: number | null;
   low: number | null;
+};
+
+export type CardmarketQuote = EuroSales & {
   currency: "EUR";
   updatedAt: string | null;
   url: string | null;
+  holo: EuroSales | null;
 };
 
 export type PriceQuote = {
-  source: "scrydex" | "pokemon-tcg";
+  source: "scrydex" | "pokemon-tcg" | "tcgdex";
   updatedAt: string | null;
   productUrl: string | null;
   variants: VariantQuote[];

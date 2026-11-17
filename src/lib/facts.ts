@@ -1,6 +1,6 @@
 import { money, percent } from "./format";
 import { cardmarketSearchUrl, ebaySearchUrl, facebookSearchUrl, httpsHref, tcgplayerSearchUrl } from "./links";
-import type { ListingLane, Pin, PriceQuote, PublicCard, VariantQuote } from "./types";
+import type { EuroSales, ListingLane, Pin, PriceQuote, PublicCard, VariantQuote } from "./types";
 
 export function pickVariant(modifiers: string[], variants: VariantQuote[]): VariantQuote | null {
   if (variants.length === 0) return null;
@@ -28,6 +28,15 @@ export function pickVariant(modifiers: string[], variants: VariantQuote[]): Vari
   return variants.find((variant) => variant.market != null) ?? variants[0] ?? null;
 }
 
+export function saleAverages(quote: PriceQuote | null | undefined, variant: VariantQuote | null): (EuroSales & { currency: "EUR" }) | null {
+  const market = quote?.cardmarket;
+  if (!market) return null;
+  const holo = variant && /holo/i.test(variant.key) && !/reverse/i.test(variant.key) ? market.holo : null;
+  const picked = holo && (holo.avg1 != null || holo.avg7 != null || holo.avg30 != null || holo.trend != null) ? holo : market;
+  if (picked.avg1 == null && picked.avg7 == null && picked.avg30 == null && picked.trend == null) return null;
+  return { ...picked, currency: "EUR" };
+}
+
 export function marketAmount(modifiers: string[], quote: PriceQuote | null | undefined): number | null {
   const variant = pickVariant(modifiers, quote?.variants ?? []);
   return variant?.market ?? null;
@@ -51,6 +60,7 @@ export function cardFacts(
   pin: Pin,
 ): CardFact[] {
   const variant = pickVariant(modifiers, quote?.variants ?? []);
+  const sales = saleAverages(quote, variant);
   const marketHref = httpsHref(quote?.productUrl, tcgplayerSearchUrl(card));
   const cardmarketHref = httpsHref(quote?.cardmarket?.url, cardmarketSearchUrl(card));
   const graded = quote?.graded ?? [];
@@ -66,12 +76,12 @@ export function cardFacts(
     href: marketHref,
   };
 
-  const euro: CardFact = quote?.cardmarket
+  const euro: CardFact = sales
     ? {
         id: "cardmarket",
         kicker: "Cardmarket",
-        value: money(quote.cardmarket.trend, "EUR"),
-        detail: quote.cardmarket.avg7 != null ? `7-day ${money(quote.cardmarket.avg7, "EUR")}` : "Trend",
+        value: money(sales.trend ?? sales.avg7, "EUR"),
+        detail: sales.avg1 != null ? `Yesterday ${money(sales.avg1, "EUR")}` : sales.avg7 != null ? `7-day ${money(sales.avg7, "EUR")}` : "Trend",
         href: cardmarketHref,
       }
     : graded[0]
@@ -106,11 +116,31 @@ export function cardFacts(
     href: buyNow.searchUrl || ebaySearchUrl(card, "bin"),
   };
 
-  const sales: CardFact = {
+  const salesFact: CardFact = {
     id: "sales",
-    kicker: "Recent",
-    value: week?.percent != null ? percent(week.percent) : quote?.cardmarket ? money(quote.cardmarket.avg7, "EUR") : "Sold",
-    detail: week ? `${week.days}-day move` : "Ended recently",
+    kicker: "Recent sales",
+    value: sales?.avg7 != null
+      ? money(sales.avg7, "EUR")
+      : sales?.avg1 != null
+        ? money(sales.avg1, "EUR")
+        : sales?.trend != null
+          ? money(sales.trend, "EUR")
+          : week?.percent != null
+            ? percent(week.percent)
+            : variant
+              ? money(variant.market, variant.currency)
+              : "Sold",
+    detail: sales?.avg7 != null
+      ? "7-day average"
+      : sales?.avg1 != null
+        ? "Yesterday’s average"
+        : sales?.trend != null
+          ? "Trend price"
+          : week
+            ? `${week.days}-day move`
+            : variant
+              ? "TCGplayer market"
+              : "Ended recently",
     href: ebaySearchUrl(card, "sold"),
   };
 
@@ -122,5 +152,5 @@ export function cardFacts(
     href: facebookSearchUrl(card),
   };
 
-  return [raw, euro, auctionFact, binFact, sales, community];
+  return [raw, euro, auctionFact, binFact, salesFact, community];
 }

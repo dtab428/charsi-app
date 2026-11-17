@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
-import { pickVariant } from "@/lib/facts";
+import { Skeleton } from "@/components/ui/skeleton";
+import { pickVariant, saleAverages } from "@/lib/facts";
 import { endsLabel, money, percent, quoteDate, variantLabel } from "@/lib/format";
 import { cardmarketSearchUrl, ebaySearchUrl, facebookSearchUrl, goldinSearchUrl, httpsHref, tcgplayerSearchUrl } from "@/lib/links";
 import type { ListingLane, Pin, PriceQuote, PublicCard } from "@/lib/types";
@@ -90,6 +91,7 @@ export function MarketTickets({
   const marketHref = httpsHref(quote?.productUrl, tcgplayerSearchUrl(card));
   const cardmarketHref = httpsHref(quote?.cardmarket?.url, cardmarketSearchUrl(card));
   const graded = quote?.graded ?? [];
+  const sales = saleAverages(quote, variant);
   const movement = quote?.trends.filter((point) => [7, 30, 90].includes(point.days)) ?? [];
   const tickets = [
       <Ticket
@@ -121,16 +123,23 @@ export function MarketTickets({
               </div>
             ) : null}
           </>
+        ) : loading ? (
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-24 bg-[#241c14]/10" />
+            <Skeleton className="h-3 w-full bg-[#241c14]/10" />
+            <Skeleton className="h-3 w-2/3 bg-[#241c14]/10" />
+          </div>
         ) : (
-          <p className="text-[#241c14]/75">{loading ? "Pulling the latest quote." : "The price feed didn’t answer. The link still opens the live page."}</p>
+          <p className="text-[#241c14]/75">The price feed didn’t answer. The link still opens the live page.</p>
         )}
       </Ticket>,
 
       quote?.cardmarket ? (
-        <Ticket key="cardmarket" kicker="Cardmarket · EUR" title={money(quote.cardmarket.trend, "EUR")} href={cardmarketHref} action="Open Cardmarket">
-          <p>7-day avg {money(quote.cardmarket.avg7, "EUR")}</p>
-          <p>30-day avg {money(quote.cardmarket.avg30, "EUR")}</p>
-          <p>Low {money(quote.cardmarket.low, "EUR")}</p>
+        <Ticket key="cardmarket" kicker="Cardmarket · EUR" title={money((sales ?? quote.cardmarket).trend, "EUR")} href={cardmarketHref} action="Open Cardmarket">
+          <p>Yesterday {money((sales ?? quote.cardmarket).avg1, "EUR")}</p>
+          <p>7-day avg {money((sales ?? quote.cardmarket).avg7, "EUR")}</p>
+          <p>30-day avg {money((sales ?? quote.cardmarket).avg30, "EUR")}</p>
+          <p>Low {money((sales ?? quote.cardmarket).low, "EUR")}</p>
           {quote.cardmarket.updatedAt ? <p className="mt-1 text-[11px] text-[#241c14]/55">Quote date {quoteDate(quote.cardmarket.updatedAt)}</p> : null}
         </Ticket>
       ) : graded.length > 0 ? (
@@ -157,8 +166,21 @@ export function MarketTickets({
         <Listings lane={buyNow} empty="Opens the newest Buy It Now listings. A free eBay key lists them here, newest first." />
       </Ticket>,
 
-      <Ticket key="sales" kicker="Last sales" title={movement[0] ? percent(movement[0].percent) : quote?.cardmarket ? money(quote.cardmarket.avg7, "EUR") : "Sold"} href={ebaySearchUrl(card, "sold")} action="Ended recently">
-        {movement.length > 0 ? (
+      <Ticket
+        key="sales"
+        kicker="Recent sales"
+        title={sales?.avg7 != null ? money(sales.avg7, "EUR") : sales?.avg1 != null ? money(sales.avg1, "EUR") : movement[0] ? percent(movement[0].percent) : variant ? money(variant.market, variant.currency) : "Sold"}
+        href={ebaySearchUrl(card, "sold")}
+        action="Ended recently"
+      >
+        {sales ? (
+          <ul>
+            {sales.avg1 != null ? <li>Yesterday {money(sales.avg1, "EUR")}</li> : null}
+            {sales.avg7 != null ? <li>7-day average {money(sales.avg7, "EUR")}</li> : null}
+            {sales.avg30 != null ? <li>30-day average {money(sales.avg30, "EUR")}</li> : null}
+            {sales.trend != null ? <li>Trend {money(sales.trend, "EUR")}</li> : null}
+          </ul>
+        ) : movement.length > 0 ? (
           <ul>
             {movement.map((point) => (
               <li key={point.days}>
@@ -169,11 +191,12 @@ export function MarketTickets({
               </li>
             ))}
           </ul>
-        ) : quote?.cardmarket ? (
-          <p>Cardmarket’s 7-day and 30-day averages are the recent-sale tape on this feed.</p>
+        ) : variant ? (
+          <p>TCGplayer market {money(variant.market, variant.currency)}. Low {money(variant.low, variant.currency)} · High {money(variant.high, variant.currency)}.</p>
         ) : (
-          <p className="text-[#241c14]/75">Recent-sale averages show up with the quote. Sold auctions open on eBay.</p>
+          <p className="text-[#241c14]/75">No sale average yet. Sold listings open on eBay.</p>
         )}
+        {sales ? <p className="mt-1 text-[11px] text-[#241c14]/55">Cardmarket averages of sold copies. Not one auction.</p> : null}
         <a href={goldinSearchUrl(card)} target="_blank" rel="noreferrer" className="mt-2 block text-xs underline decoration-[#241c14]/30">
           Goldin search
         </a>

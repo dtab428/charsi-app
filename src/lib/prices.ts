@@ -1,5 +1,6 @@
+import { getCatalog } from "./catalog";
 import { variantLabel } from "./format";
-import type { CardmarketQuote, GradedQuote, PriceQuote, TrendPoint, VariantQuote } from "./types";
+import type { CardmarketQuote, EuroSales, GradedQuote, PriceQuote, TrendPoint, VariantQuote } from "./types";
 
 type CacheEntry = { at: number; quote: PriceQuote | null };
 const cache = new Map<string, CacheEntry>();
@@ -86,12 +87,14 @@ function fromPokemon(card: Record<string, unknown>): PriceQuote | null {
   const cardmarket: CardmarketQuote | null = euro
     ? {
         trend: amount(euro.trendPrice),
+        avg1: null,
         avg7: amount(euro.avg7),
         avg30: amount(euro.avg30),
         low: amount(euro.lowPrice),
         currency: "EUR",
         updatedAt: text(market?.updatedAt),
         url: text(market?.url),
+        holo: null,
       }
     : null;
   if (variants.length === 0 && !cardmarket) return null;
@@ -167,6 +170,133 @@ function fromScrydex(card: Record<string, unknown>): PriceQuote | null {
   };
 }
 
+function euroSales(source: Record<string, unknown>, suffix: "" | "-holo"): EuroSales {
+  const read = (name: string) => amount(source[suffix ? `${name}${suffix}` : name]);
+  return { trend: read("trend"), avg1: read("avg1"), avg7: read("avg7"), avg30: read("avg30"), low: read("low") };
+}
+
+function hasSale(sales: EuroSales): boolean {
+  return sales.trend != null || sales.avg1 != null || sales.avg7 != null || sales.avg30 != null || sales.low != null;
+}
+
+function printingKey(raw: string): string {
+  return raw.replace(/-([a-z0-9])/g, (_, char: string) => char.toUpperCase());
+}
+
+function fromTcgdex(card: Record<string, unknown>): PriceQuote | null {
+  const pricing = record(card.pricing);
+  const tcg = record(pricing?.tcgplayer);
+  const market = record(pricing?.cardmarket);
+  const variants: VariantQuote[] = [];
+  let productUrl: string | null = null;
+  if (tcg) {
+    for (const [key, value] of Object.entries(tcg)) {
+      if (key === "unit" || key === "updated") continue;
+      const quote = record(value);
+      if (!quote) continue;
+      const productId = typeof quote.productId === "number" ? quote.productId : null;
+      if (!productUrl && productId) productUrl = `https://www.tcgplayer.com/product/${productId}`;
+      variants.push({
+        key: printingKey(key),
+        label: variantLabel(printingKey(key)),
+        market: amount(quote.marketPrice),
+        low: amount(quote.lowPrice),
+        mid: amount(quote.midPrice),
+        high: amount(quote.highPrice),
+        currency: "USD",
+      });
+    }
+  }
+  const plain = market ? euroSales(market, "") : null;
+  const holo = market ? euroSales(market, "-holo") : null;
+  const cardmarket: CardmarketQuote | null = plain && hasSale(plain)
+    ? {
+        ...plain,
+        currency: "EUR",
+        updatedAt: text(market?.updated),
+        url: null,
+        holo: holo && hasSale(holo) ? holo : null,
+      }
+    : null;
+  if (variants.length === 0 && !cardmarket) return null;
+  return {
+    source: "tcgdex",
+    updatedAt: text(tcg?.updated) ?? text(market?.updated),
+    productUrl,
+    variants,
+    cardmarket,
+    graded: [],
+    trends: [],
+  };
+}
+
+let setIds: Promise<Map<string, string>> | null = null;
+
+function tcgdexSetIds(): Promise<Map<string, string>> {
+  if (!setIds) {
+    setIds = (async () => {
+      const payload = await fetchJson("https://api.tcgdex.net/v2/en/sets");
+      const byName = new Map<string, string>();
+      for (const entry of Array.isArray(payload) ? payload : []) {
+        const row = record(entry);
+        const name = text(row?.name)?.toLowerCase();
+        const id = text(row?.id);
+        if (name && id && !byName.has(name)) byName.set(name, id);
+      }
+      const map = new Map<string, string>();
+      for (const set of getCatalog().sets.values()) {
+        const id = byName.get(set.name.toLowerCase());
+        if (id) map.set(set.id, id);
+      }
+      return map;
+    })().catch((error: unknown) => {
+      setIds = null;
+      throw error;
+    });
+  }
+  return setIds;
+}
+
+function tcgdexCandidates(cardId: string, sets: Map<string, string>): string[] {
+  const card = getCatalog().cards.find((entry) => entry.id === cardId);
+  if (!card) return [cardId];
+  const setId = sets.get(card.set) ?? card.set;
+  const stripped = card.num.replace(/^0+(?=\d)/, "");
+  return [...new Set([`${setId}-${card.num}`, `${setId}-${stripped}`, card.id])];
+}
+
+async function readTcgdex(id: string): Promise<PriceQuote | null> {
+  const payload = await fetchJson(`https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(id)}`);
+  const card = record(payload);
+  return card ? fromTcgdex(card) : null;
+}
+
+async function fromTcgdexApi(ids: string[]): Promise<Map<string, PriceQuote | null>> {
+  const found = new Map<string, PriceQuote | null>();
+  let sets = new Map<string, string>();
+  try {
+    sets = await tcgdexSetIds();
+  } catch {
+    sets = new Map();
+  }
+  let cursor = 0;
+  async function worker() {
+    while (cursor < ids.length) {
+      const id = ids[cursor];
+      cursor += 1;
+      if (!id) return;
+      let quote: PriceQuote | null = null;
+      for (const candidate of tcgdexCandidates(id, sets)) {
+        quote = await readTcgdex(candidate);
+        if (quote) break;
+      }
+      found.set(id, quote);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(5, ids.length) }, () => worker()));
+  return found;
+}
+
 function cardsFrom(payload: unknown): Record<string, unknown>[] {
   const root = record(payload);
   const data = root?.data ?? payload;
@@ -226,7 +356,19 @@ export async function quotesFor(ids: string[]): Promise<Record<string, PriceQuot
   if (missing.length === 0) return result;
 
   const scrydex = await fromScrydexApi(missing);
-  const source = scrydex ?? (await fromPokemonApi(missing));
+  let source: Map<string, PriceQuote | null>;
+  if (scrydex) {
+    source = scrydex;
+  } else {
+    source = await fromTcgdexApi(missing);
+    const missed = missing.filter((id) => !source.get(id));
+    if (missed.length > 0) {
+      const pokemon = await fromPokemonApi(missed);
+      for (const [id, quote] of pokemon) {
+        if (quote) source.set(id, quote);
+      }
+    }
+  }
   for (const id of missing) {
     const quote = source.get(id) ?? null;
     cache.set(id, { at: now, quote });
@@ -235,7 +377,7 @@ export async function quotesFor(ids: string[]): Promise<Record<string, PriceQuot
   return result;
 }
 
-export function priceSource(quotes: Record<string, PriceQuote | null>): "scrydex" | "pokemon-tcg" | "none" {
+export function priceSource(quotes: Record<string, PriceQuote | null>): "scrydex" | "pokemon-tcg" | "tcgdex" | "none" {
   for (const quote of Object.values(quotes)) {
     if (quote) return quote.source;
   }

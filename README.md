@@ -56,7 +56,7 @@ Copy `.env.example` to `.env.local` if you want live feeds beyond the public fal
 | `POKEMON_TCG_API_KEY` | Higher rate limit on the public Pokémon TCG API, used when Scrydex is not set |
 | `EBAY_CLIENT_ID` and `EBAY_CLIENT_SECRET` | Live eBay auctions and Buy It Now inside the tickets |
 
-Without those keys, pictures, matching, TCGplayer, and Cardmarket still work. TCGplayer and Cardmarket numbers come from the public Pokémon TCG API and can lag the live market. The date on the ticket is the quote date, not a bid.
+Without those keys, pictures, matching, TCGplayer, and Cardmarket still work. Those numbers come from TCGdex: TCGplayer’s market price, and Cardmarket’s 1-day, 7-day, and 30-day sale averages. The date on the ticket is when that feed last refreshed, not a single auction. eBay sold listings stay a search until a sold-listings feed exists.
 
 ## Refresh the catalog
 
