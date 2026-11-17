@@ -14,6 +14,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { MarketFilters } from "@/components/market";
+import { COMPANIES, DEFAULT_FILTERS, type Filters } from "@/lib/feed";
 import { marketAmount } from "@/lib/facts";
 import { fileSlug, money } from "@/lib/format";
 import { GAMES, SAMPLE_LIST } from "@/lib/games";
@@ -30,7 +32,16 @@ type Saved = {
   text?: string;
   title?: string;
   pins?: Record<string, Pin>;
+  filters?: Filters;
 };
+
+function validFilters(value: Filters | undefined): Filters {
+  if (!value) return DEFAULT_FILTERS;
+  const source = ["all", "tcgplayer", "cardmarket", "ebay"].includes(value.source) ? value.source : "all";
+  const condition = value.condition === "raw" || COMPANIES.includes(value.condition) ? value.condition : "raw";
+  const grade = typeof value.grade === "string" && value.grade.length <= 4 ? value.grade : "10";
+  return { source, condition, grade };
+}
 
 async function readJson<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
@@ -39,7 +50,7 @@ async function readJson<T>(response: Response): Promise<T> {
 export function Desk() {
   const [text, setText] = useState("");
   const [title, setTitle] = useState("");
-  const [openKey, setOpenKey] = useState<string | null>(null);
+  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [items, setItems] = useState<DeskItem[]>([]);
   const [pulling, setPulling] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,6 +76,7 @@ export function Desk() {
       setText(saved.text ?? "");
       setTitle(saved.title ?? "");
       setPins(saved.pins ?? {});
+      setFilters(validFilters(saved.filters));
       if (saved.text?.trim()) void pull(saved.text);
     } catch {
       localStorage.removeItem(STORAGE);
@@ -74,9 +86,9 @@ export function Desk() {
   }, []);
 
   useEffect(() => {
-    const payload: Saved = { text, title, pins };
+    const payload: Saved = { text, title, pins, filters };
     localStorage.setItem(STORAGE, JSON.stringify(payload));
-  }, [text, title, pins]);
+  }, [text, title, pins, filters]);
 
   async function loadPrices(ids: string[]) {
     if (ids.length === 0) return;
@@ -195,7 +207,6 @@ export function Desk() {
         return;
       }
       const next = payload.items.map((item) => ({ ...item, key: crypto.randomUUID(), included: Boolean(item.card) }));
-      setOpenKey(null);
       setItems(next);
       const ids = [...new Set(next.flatMap((item) => (item.card ? [item.card.id] : [])))];
       void loadPrices(ids);
@@ -442,14 +453,14 @@ export function Desk() {
                 </Button>
               </div>
             </div>
+            <MarketFilters filters={filters} onChange={setFilters} />
             <Board
               items={items}
-              openKey={openKey}
               quotes={quotes}
               loadingQuotes={loadingQuotes}
               lanes={lanes}
               pins={pins}
-              onOpen={setOpenKey}
+              filters={filters}
               onPin={(id, pin) => setPins((current) => ({ ...current, [id]: pin }))}
               onInclude={(key, included) => setItems((current) => current.map((item) => (item.key === key ? { ...item, included } : item)))}
               onRemove={(key) => setItems((current) => current.filter((item) => item.key !== key))}
@@ -463,7 +474,7 @@ export function Desk() {
       </main>
 
       <footer className="mx-auto max-w-[1200px] px-4 pt-4 pb-10 text-xs leading-relaxed text-[#b3a694]">
-        Card data and images are © Pokémon, Nintendo, Creatures, and GAME FREAK. Charsi isn’t affiliated with them, or with eBay, TCGplayer, Cardmarket, Goldin, Facebook, or Discord. Prices come from the Pokémon TCG API (TCGplayer and Cardmarket) unless a Scrydex key is connected. eBay listings load with an eBay application key. Goldin, Facebook Marketplace, and Discord are links and pins, not a scrape.
+        Card data and images are © Pokémon, Nintendo, Creatures, and GAME FREAK. Charsi isn’t affiliated with them, or with eBay, TCGplayer, Cardmarket, Goldin, Facebook, or Discord. Prices come from TCGdex (TCGplayer and Cardmarket) unless a Scrydex key is connected. eBay listings load with an eBay application key. Goldin, Facebook Marketplace, and Discord are links and pins, not a scrape.
       </footer>
 
       <Dialog open={zoom != null} onOpenChange={(open) => !open && setZoom(null)}>

@@ -5,9 +5,12 @@ export function searchPhrase(card: PublicCard): string {
   return `Pokemon ${card.name} ${card.setName} ${number}`.replace(/\s+/g, " ").trim();
 }
 
-export function ebaySearchUrl(card: PublicCard, lane: "auction" | "bin" | "sold"): string {
+export type Grading = { company: string; grade: string };
+
+export function ebaySearchUrl(card: PublicCard, lane: "auction" | "bin" | "sold", grading?: Grading | null): string {
   const url = new URL("https://www.ebay.com/sch/183454/i.html");
-  url.searchParams.set("_nkw", searchPhrase(card));
+  const phrase = grading ? `${searchPhrase(card)} ${grading.company} ${grading.grade}` : searchPhrase(card);
+  url.searchParams.set("_nkw", phrase);
   if (lane === "auction") {
     url.searchParams.set("LH_Auction", "1");
     url.searchParams.set("_sop", "1");

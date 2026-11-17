@@ -74,6 +74,17 @@ export function endsLabel(iso: string | null): string | null {
   return `${left} · ${when} ET`;
 }
 
+export function listedLabel(iso: string | null): string | null {
+  if (!iso) return null;
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return null;
+  const minutes = Math.max(0, Math.round((Date.now() - then) / 60000));
+  if (minutes < 60) return `Listed ${Math.max(1, minutes)}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 48) return `Listed ${hours}h ago`;
+  return `Listed ${Math.round(hours / 24)}d ago`;
+}
+
 export function fileSlug(name: string, code: string, number: string): string {
   const base = `${name} ${code} ${number}`
     .toLowerCase()

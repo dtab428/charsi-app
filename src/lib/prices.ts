@@ -142,7 +142,7 @@ function fromScrydex(card: Record<string, unknown>): PriceQuote | null {
       const company = (text(row.company) ?? "").toUpperCase();
       if (!GRADED_COMPANIES.has(company)) continue;
       const grade = text(row.grade);
-      if (!grade || !["10", "9.5", "9"].includes(grade)) continue;
+      if (!grade || !["10", "9.5", "9", "8"].includes(grade)) continue;
       graded.push({
         company,
         grade,
@@ -165,7 +165,7 @@ function fromScrydex(card: Record<string, unknown>): PriceQuote | null {
     productUrl: null,
     variants,
     cardmarket: null,
-    graded: graded.slice(0, 4),
+    graded: graded.slice(0, 40),
     trends,
   };
 }

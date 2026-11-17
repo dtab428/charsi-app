@@ -2,10 +2,9 @@
 
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import { CardMarket } from "@/components/market";
 import { Pressable } from "@/components/ui/ripple";
-import { Skeleton } from "@/components/ui/skeleton";
-import { MarketTickets } from "@/components/tickets";
-import { cardFacts } from "@/lib/facts";
+import type { Filters } from "@/lib/feed";
 import { emptyLane } from "@/lib/links";
 import type { ListingLane, Pin, PriceQuote, PublicCard, ResolveItem } from "@/lib/types";
 
@@ -56,7 +55,7 @@ function Actions({
   onSave: (card: PublicCard) => void;
 }) {
   return (
-    <div className="mt-3 flex flex-wrap gap-2">
+    <div className="mt-4 flex flex-wrap gap-2">
       {item.card ? (
         <Button type="button" size="sm" variant={item.included ? "default" : "outline"} onClick={() => onInclude(item.key, !item.included)}>
           {item.included ? "On the sheet" : "Off the sheet"}
@@ -81,12 +80,11 @@ function Actions({
 
 function CardDesk({
   item,
-  open,
   quote,
   loadingQuotes,
   lanes,
   pin,
-  onOpen,
+  filters,
   onPin,
   onInclude,
   onRemove,
@@ -96,12 +94,11 @@ function CardDesk({
   onZoom,
 }: {
   item: DeskItem;
-  open: boolean;
   quote: PriceQuote | null | undefined;
   loadingQuotes: boolean;
   lanes: { auctions: ListingLane; buyNow: ListingLane } | undefined;
   pin: Pin;
-  onOpen: (key: string | null) => void;
+  filters: Filters;
   onPin: (pin: Pin) => void;
   onInclude: (key: string, included: boolean) => void;
   onRemove: (key: string) => void;
@@ -113,30 +110,24 @@ function CardDesk({
   const card = item.card;
   const auctions = card ? lanes?.auctions ?? emptyLane(card, "auction") : null;
   const buyNow = card ? lanes?.buyNow ?? emptyLane(card, "bin") : null;
-  const facts = card && auctions && buyNow ? cardFacts(card, item.modifiers, quote, loadingQuotes, auctions, buyNow, pin) : [];
 
   return (
-    <li className="rounded-[24px] border border-white/10 bg-[#1c1814]/80 p-3 sm:p-4">
-      <div className="flex gap-3 sm:gap-4">
-        <div className="w-16 shrink-0 sm:w-[5.5rem]">
-          {card ? <Face card={card} onZoom={onZoom} /> : (
+    <li className="rounded-[24px] border border-white/10 bg-[#1c1814]/80 p-3 sm:p-5">
+      <div className="flex gap-3 sm:gap-5">
+        <div className="w-24 shrink-0 self-start sm:w-40 lg:w-48">
+          {card ? (
+            <Face card={card} onZoom={onZoom} />
+          ) : (
             <div className="flex aspect-[63/88] items-end rounded-md border border-dashed border-white/15 p-2 text-xs text-[#b3a694]">{item.raw}</div>
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <div className="min-w-0">
-              <div className="flex items-baseline gap-2">
-                <h3 className="font-serif text-2xl leading-none tracking-tight">{card?.name ?? item.raw}</h3>
-                {item.quantity > 1 ? <span className="text-sm text-[#d4a574]">×{item.quantity}</span> : null}
-              </div>
-              {card ? <p className="mt-1 text-xs tracking-[0.14em] text-[#b3a694] uppercase">{printed(card)} · {card.rarity}</p> : null}
+          <div className="min-w-0">
+            <div className="flex items-baseline gap-2">
+              <h3 className="font-serif text-2xl leading-none tracking-tight sm:text-3xl">{card?.name ?? item.raw}</h3>
+              {item.quantity > 1 ? <span className="text-sm text-[#d4a574]">×{item.quantity}</span> : null}
             </div>
-            {card ? (
-              <Button type="button" size="sm" variant={open ? "secondary" : "outline"} aria-expanded={open} onClick={() => onOpen(open ? null : item.key)}>
-                {open ? "Hide the market" : "Open the market"}
-              </Button>
-            ) : null}
+            {card ? <p className="mt-1 text-xs tracking-[0.14em] text-[#b3a694] uppercase">{printed(card)} · {card.rarity}</p> : null}
           </div>
           <p className="mt-1 text-xs text-[#d4a574]/90">Heard “{item.raw}”</p>
           {item.corrections.map((correction) => (
@@ -164,101 +155,33 @@ function CardDesk({
                 .join(" · ")}
             </p>
           ) : null}
-          {facts.length > 0 && !open ? (
-            loadingQuotes && quote == null ? (
-              <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
-                {facts.map((fact) => (
-                  <li key={fact.id}>
-                    <Skeleton className="h-[4.25rem] w-full rounded-xl bg-[#f4efe4]/12" />
-                  </li>
-                ))}
-              </ul>
-            ) : (
-            <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
-              {facts.map((fact) => (
-                <li key={fact.id} className="min-w-0">
-                  {fact.href ? (
-                    <Pressable href={fact.href} className="block h-full rounded-xl bg-[#f4efe4] px-2.5 py-2 text-[#241c14] hover:bg-[#fffaf1]">
-                      <FactBody kicker={fact.kicker} value={fact.value} detail={fact.detail} />
-                    </Pressable>
-                  ) : (
-                    <div className="h-full rounded-xl bg-[#f4efe4] px-2.5 py-2 text-[#241c14]">
-                      <FactBody kicker={fact.kicker} value={fact.value} detail={fact.detail} />
-                    </div>
-                  )}
-                </li>
-              ))}
-            </ul>
-            )
+          {card && auctions && buyNow ? (
+            <CardMarket
+              card={card}
+              modifiers={item.modifiers}
+              quote={quote}
+              loading={loadingQuotes}
+              auctions={auctions}
+              buyNow={buyNow}
+              pin={pin}
+              onPin={onPin}
+              filters={filters}
+            />
           ) : null}
           <Actions item={item} onInclude={onInclude} onRemove={onRemove} onCopy={onCopy} onSave={onSave} />
         </div>
       </div>
-      {open && card && auctions && buyNow ? (
-        <div className="mt-4">
-          <div className="xl:hidden">
-            <MarketTickets
-              layout="stack"
-              card={card}
-              modifiers={item.modifiers}
-              quote={quote}
-              loading={loadingQuotes}
-              auctions={auctions}
-              buyNow={buyNow}
-              pin={pin}
-              onPin={onPin}
-            />
-          </div>
-          <div className="relative hidden h-[680px] xl:block">
-            <div className="absolute top-1/2 left-1/2 z-10 w-[190px] -translate-x-1/2 -translate-y-1/2">
-              <Pressable onClick={() => onZoom(card)} className="block w-full rounded-md text-left">
-                <Image
-                  src={card.large || card.small}
-                  alt={card.name}
-                  width={245}
-                  height={342}
-                  unoptimized
-                  className="rounded-md bg-[#2a241e]"
-                  style={{ width: "100%", height: "auto" }}
-                />
-              </Pressable>
-            </div>
-            <MarketTickets
-              layout="orbit"
-              card={card}
-              modifiers={item.modifiers}
-              quote={quote}
-              loading={loadingQuotes}
-              auctions={auctions}
-              buyNow={buyNow}
-              pin={pin}
-              onPin={onPin}
-            />
-          </div>
-        </div>
-      ) : null}
     </li>
-  );
-}
-
-function FactBody({ kicker, value, detail }: { kicker: string; value: string; detail: string }) {
-  return (
-    <>
-      <p className="text-[10px] font-medium tracking-[0.14em] text-[#8a5a2a] uppercase">{kicker}</p>
-      <p className="mt-1 truncate font-serif text-xl leading-none">{value}</p>
-      <p className="mt-1 truncate text-[11px] text-[#241c14]/65">{detail}</p>
-    </>
   );
 }
 
 export function Board({
   items,
-  openKey,
   quotes,
   loadingQuotes,
   lanes,
   pins,
-  onOpen,
+  filters,
   onPin,
   onInclude,
   onRemove,
@@ -268,12 +191,11 @@ export function Board({
   onZoom,
 }: {
   items: DeskItem[];
-  openKey: string | null;
   quotes: Record<string, PriceQuote | null>;
   loadingQuotes: boolean;
   lanes: Record<string, { auctions: ListingLane; buyNow: ListingLane }>;
   pins: Record<string, Pin>;
-  onOpen: (key: string | null) => void;
+  filters: Filters;
   onPin: (id: string, pin: Pin) => void;
   onInclude: (key: string, included: boolean) => void;
   onRemove: (key: string) => void;
@@ -283,19 +205,18 @@ export function Board({
   onZoom: (card: PublicCard) => void;
 }) {
   return (
-    <ul className="flex flex-col gap-3">
+    <ul className="flex flex-col gap-4">
       {items.map((item) => {
         const card = item.card;
         return (
           <CardDesk
             key={item.key}
             item={item}
-            open={openKey === item.key}
             quote={card ? quotes[card.id] : undefined}
             loadingQuotes={loadingQuotes}
             lanes={card ? lanes[card.id] : undefined}
             pin={card ? pins[card.id] ?? emptyPin : emptyPin}
-            onOpen={onOpen}
+            filters={filters}
             onPin={(next) => card && onPin(card.id, next)}
             onInclude={onInclude}
             onRemove={onRemove}

@@ -126,6 +126,7 @@ export type Listing = {
   currency: string;
   bids: number | null;
   endsAt: string | null;
+  listedAt: string | null;
   shipping: string | null;
   condition: string | null;
 };

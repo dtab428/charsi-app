@@ -80,10 +80,11 @@ function listingsFrom(payload: unknown): Listing[] {
       currency: typeof price?.currency === "string" ? price.currency : "USD",
       bids: numberOrNull(item.bidCount),
       endsAt: typeof item.itemEndDate === "string" ? item.itemEndDate : null,
+      listedAt: typeof item.itemCreationDate === "string" ? item.itemCreationDate : null,
       shipping: shipValue == null ? null : shipValue === 0 ? "Free shipping" : `+${shipValue.toFixed(2)} shipping`,
       condition: typeof item.condition === "string" ? item.condition : null,
     });
-    if (listings.length === 3) break;
+    if (listings.length === 5) break;
   }
   return listings;
 }
@@ -99,7 +100,7 @@ async function search(card: PublicCard, kind: "auction" | "bin"): Promise<Listin
   const url = new URL("https://api.ebay.com/buy/browse/v1/item_summary/search");
   url.searchParams.set("q", `Pokemon ${card.name} ${card.setName} ${card.number}`.replace(/\s+/g, " "));
   url.searchParams.set("category_ids", "183454");
-  url.searchParams.set("limit", "4");
+  url.searchParams.set("limit", "6");
   url.searchParams.set("filter", `buyingOptions:{${kind === "auction" ? "AUCTION" : "FIXED_PRICE"}}`);
   url.searchParams.set("sort", kind === "auction" ? "endingSoonest" : "newlyListed");
   try {
