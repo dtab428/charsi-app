@@ -19,7 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { AccountMenu } from "@/components/account-menu";
 import { MarketFilters } from "@/components/market";
 import { COMPANIES, DEFAULT_FILTERS, type Filters } from "@/lib/feed";
-import { marketAmount, mergePrintings, printingFamily, resolveActive } from "@/lib/facts";
+import { keptAfterChoice, marketAmount, mergePrintings, printingFamily, resolveActive } from "@/lib/facts";
 import { fileSlug, finishOf, money, reverseStamp, variantLabel } from "@/lib/format";
 import { GAMES, SAMPLE_LIST } from "@/lib/games";
 import { cardBands } from "@/lib/photo-bands";
@@ -236,7 +236,11 @@ export function Desk() {
 
   function choose(key: string, card: PublicCard) {
     setItems((current) =>
-      current.map((item) => (item.key === key ? { ...item, card, status: "matched", confidence: 1, included: true, alternatives: item.alternatives.filter((alt) => alt.id !== card.id) } : item)),
+      current.map((item) =>
+        item.key === key
+          ? { ...item, card, status: "matched", confidence: 1, included: true, picked: null, alternatives: keptAfterChoice(item.card, item.alternatives, card) }
+          : item,
+      ),
     );
     void loadPrices([card.id]);
     void loadMarket([card.id]);

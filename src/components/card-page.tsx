@@ -109,6 +109,7 @@ export function CardPage({ card, printing, siblings = [] }: { card: PublicCard; 
   const selected = variants.find((entry) => entry.key === activeKey) ?? null;
   const finish = finishOf(activeKey) ?? finishOf(printing);
   const waiting = quote === undefined || (!fromLink && !familyLoaded);
+  const asking = !fromLink && (active.needsPick || (waiting && siblings.length > 0));
   const hold = active.needsPick || waiting;
   const dim = hold ? "pointer-events-none opacity-30 transition-opacity select-none" : "transition-opacity";
   const auctions = lanes?.auctions ?? emptyLane(card, "auction");
@@ -173,14 +174,23 @@ export function CardPage({ card, printing, siblings = [] }: { card: PublicCard; 
               <div>
                 <h1 className="font-serif text-4xl leading-none tracking-tight sm:text-5xl">{card.name}</h1>
                 <p className="mt-2 text-sm text-[#b3a694]">
-                  {card.setName} · {card.printedTotal ? `${card.number}/${card.printedTotal}` : card.number}
-                  {variants.length > 1 && selected ? ` · ${variantLabel(selected.key)}` : ""}
+                  {asking
+                    ? `${card.setName} · which printing?`
+                    : `${card.setName} · ${card.printedTotal ? `${card.number}/${card.printedTotal}` : card.number}${variants.length > 1 && selected ? ` · ${variantLabel(selected.key)}` : ""}`}
                 </p>
               </div>
               <HoldingToggles cardId={card.id} printing={activeKey ? printingSlug(activeKey) : null} condition={filters.condition} grade={filters.grade} labeled />
             </div>
 
-            {waiting ? <p className="text-sm text-[#b3a694]">Checking which printings this card comes in.</p> : null}
+            {asking && waiting ? (
+              <div className="rounded-2xl border-2 border-[#f0d7a4] bg-[#2a2216] p-4">
+                <p className="font-serif text-xl italic text-[#f3ecdf]">Which printing do you mean?</p>
+                <p className="mt-1 text-xs leading-relaxed text-[#d8c9ab]">
+                  Checking {[card, ...siblings].map((member) => (member.printedTotal ? `${member.number}/${member.printedTotal}` : member.number)).join(" and ")}. The price depends on which one this is.
+                </p>
+              </div>
+            ) : null}
+            {waiting && !asking ? <p className="text-sm text-[#b3a694]">Checking the price.</p> : null}
             {variants.length > 1 ? (
               <PrintingPicker
                 variants={variants}

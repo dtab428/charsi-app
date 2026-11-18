@@ -10,7 +10,7 @@ import { PrintingPicker } from "@/components/printing-picker";
 import { Pressable } from "@/components/ui/ripple";
 import { useEffect, useRef, useState } from "react";
 import { mergePrintings, printingFamily, resolveActive, shownPicture } from "@/lib/facts";
-import { finishOf, reverseStamp } from "@/lib/format";
+import { finishOf, reverseStamp, variantLabel } from "@/lib/format";
 import { cardHref, printingSlug } from "@/lib/printing";
 import { COMPANIES, GRADES, type Company, type Filters } from "@/lib/feed";
 import { emptyLane } from "@/lib/links";
@@ -183,6 +183,7 @@ function CardDesk({
   const dim = hold ? "pointer-events-none opacity-30 transition-opacity select-none" : "transition-opacity";
   const printing = activeKey ? printingSlug(activeKey) : null;
   const finish = finishOf(activeKey);
+  const asking = !pickedKey && (active.needsPick || (waiting && family.length > 1));
   const picture = shown ? shownPicture(shownQuote?.variants ?? printings, activeKey, finish, shown.small, shown.large) : "";
   const auctions = shown ? lanes?.auctions ?? emptyLane(shown, "auction") : null;
   const buyNow = shown ? lanes?.buyNow ?? emptyLane(shown, "bin") : null;
@@ -215,7 +216,11 @@ function CardDesk({
               {item.quantity > 1 ? <span className="text-sm text-[#d4a574]">×{item.quantity}</span> : null}
               {shown ? <span className="ml-auto"><HoldingToggles cardId={shown.id} printing={printing} condition={view.condition} grade={view.grade} /></span> : null}
             </div>
-            {shown ? <p className="mt-1 text-xs text-[#b3a694]">{printed(shown)} · {shown.rarity}</p> : null}
+            {shown ? (
+              <p className="mt-1 text-xs text-[#b3a694]">
+                {asking ? `${shown.setName} · which printing?` : `${printed(shown)} · ${printings.length > 1 && activeKey ? variantLabel(activeKey) : shown.rarity}`}
+              </p>
+            ) : null}
           </div>
           <p className="mt-1 text-xs text-[#d4a574]/90">Heard “{item.raw}”</p>
           {item.corrections.map((correction) => (
@@ -226,7 +231,7 @@ function CardDesk({
           ))}
           {item.status === "ambiguous" && outside.length > 0 ? <p className="mt-2 text-xs text-[#f3ecdf]">A few cards match. Pick the one you meant.</p> : null}
           {item.status === "unmatched" ? <p className="mt-2 text-xs text-[#f3ecdf]">Nothing sat close enough.</p> : null}
-          {outside.length > 0 ? (
+          {(item.status === "ambiguous" || item.status === "unmatched") && outside.length > 0 ? (
             <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
               {outside.map((alt) => (
                 <Pressable key={alt.id} onClick={() => onChoose(item.key, alt)} className="w-24 shrink-0 rounded-sm text-left">
@@ -243,7 +248,15 @@ function CardDesk({
                 .join(" · ")}
             </p>
           ) : null}
-          {waiting ? <p className="mt-4 text-xs text-[#b3a694]">Checking which printings this card comes in.</p> : null}
+          {asking && waiting ? (
+            <div className="mt-4 rounded-2xl border-2 border-[#f0d7a4] bg-[#2a2216] p-4">
+              <p className="font-serif text-xl italic text-[#f3ecdf]">Which printing do you mean?</p>
+              <p className="mt-1 text-xs leading-relaxed text-[#d8c9ab]">
+                Checking {family.map((member) => (member.printedTotal ? `${member.number}/${member.printedTotal}` : member.number)).join(" and ")}. The price depends on which one this is.
+              </p>
+            </div>
+          ) : null}
+          {waiting && !asking ? <p className="mt-4 text-xs text-[#b3a694]">Checking the price.</p> : null}
           {card && printings.length > 0 && !waiting ? (
             <div className="mt-4">
               <PrintingPicker

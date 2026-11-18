@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { mergePrintings, resolveActive } from "./facts";
+import { keptAfterChoice, mergePrintings, resolveActive } from "./facts";
 import { preferPricedVariants } from "./prices";
-import type { PriceQuote } from "./types";
+import type { PriceQuote, PublicCard } from "./types";
 import { finishOf, reverseStamp, variantLabel, withoutGenericEditions } from "./format";
 import { stampPaths } from "./stamp-art";
 import type { VariantQuote } from "./types";
@@ -19,6 +19,16 @@ const fossil = [
   variant("unlimited", 40),
   variant("normal"),
 ];
+
+test("choosing one card drops the other prompt matches and keeps its printings", () => {
+  const card = (id: string, setId: string, name: string) => ({ id, setId, name }) as PublicCard;
+  const promo = card("bwp-BW93", "bwp", "Umbreon");
+  const evolutions = card("xy12-94", "xy12", "Umbreon");
+  const fossilHolo = card("base3-4", "base3", "Dragonite");
+  const fossilPlain = card("base3-19", "base3", "Dragonite");
+  assert.deepEqual(keptAfterChoice(evolutions, [promo, card("smp-SM36", "smp", "Umbreon-GX")], promo).map((entry) => entry.id), []);
+  assert.deepEqual(keptAfterChoice(fossilHolo, [fossilPlain, card("ex7-15", "ex7", "Dark Dragonite")], fossilPlain).map((entry) => entry.id), ["base3-4"]);
+});
 
 test("edition printings stay distinct and the generic holo is dropped", () => {
   const kept = withoutGenericEditions(fossil).map((entry) => entry.key);
