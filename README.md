@@ -45,7 +45,7 @@ Sign in with Discord (free):
 2. Under OAuth2, add the redirect `http://localhost:4177/api/auth/discord/callback`.
 3. Put the client ID and secret in `.env.local` as `DISCORD_CLIENT_ID` and `DISCORD_CLIENT_SECRET`, plus a long random `SESSION_SECRET`.
 
-Until Discord is set up, local development uses a single “Local profile” so you can try everything. In production, sign-in is required and `SESSION_SECRET` must be set. Note that file storage only persists on a host with a writable disk.
+Saving to My Collection or My Wishlist needs a Discord sign-in, locally and in production. `.env.local` is not in git, so every machine and every host (Vercel included) needs the three values set in its own environment. On a host with a read-only disk, such as Vercel, saved lists need a database before they persist.
 
 ## Run it
 

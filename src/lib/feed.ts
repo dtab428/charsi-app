@@ -1,6 +1,6 @@
 import { pickVariant, saleAverages } from "./facts";
 import { endsLabel, listedLabel, money, quoteDate } from "./format";
-import { affiliateUrl, altSearchUrl, cardmarketSearchUrl, fanaticsSearchUrl, ebaySearchUrl, facebookSearchUrl, goldinSearchUrl, httpsHref, tcgplayerSearchUrl, type Grading } from "./links";
+import { affiliateUrl, altSearchUrl, cardmarketSearchUrl, fanaticsSearchUrl, ebaySearchUrl, facebookSearchUrl, finishTerm, goldinSearchUrl, httpsHref, tcgplayerSearchUrl, type Grading } from "./links";
 import type { Listing, ListingLane, Pin, PriceQuote, PublicCard } from "./types";
 
 export type SourceFilter = "all" | "tcgplayer" | "cardmarket" | "ebay";
@@ -82,7 +82,7 @@ function listingRow(listing: Listing, kind: "auction" | "bin", index: number): F
   };
 }
 
-function laneLinkRow(card: PublicCard, lane: ListingLane, kind: "auction" | "bin", grading: Grading | null, order: number): FeedRow {
+function laneLinkRow(card: PublicCard, lane: ListingLane, kind: "auction" | "bin", grading: Grading | null, order: number, finish = ""): FeedRow {
   const graded = grading ? ` · ${grading.company} ${grading.grade}` : "";
   let sub = kind === "auction" ? "Ending soonest first" : "Newest listings first";
   if (!grading) {
@@ -97,7 +97,7 @@ function laneLinkRow(card: PublicCard, lane: ListingLane, kind: "auction" | "bin
     sub,
     value: "Open eBay",
     when: null,
-    href: grading ? ebaySearchUrl(card, kind, grading) : lane.searchUrl || ebaySearchUrl(card, kind),
+    href: grading || finish ? ebaySearchUrl(card, kind, grading, finish) : lane.searchUrl || ebaySearchUrl(card, kind),
     link: true,
     at: 0,
     order,
@@ -136,7 +136,7 @@ export function buildFeed(input: {
         sub: "Ended recently, newest first",
         value: "Open eBay",
         when: null,
-        href: ebaySearchUrl(card, "sold"),
+        href: ebaySearchUrl(card, "sold", null, finishTerm(variant?.key)),
         link: true,
         at: TOP,
         order: 0,
@@ -236,8 +236,9 @@ export function buildFeed(input: {
     if (keep("ebay")) {
       const auctionRows = auctions.status === "live" ? auctions.listings.map((listing, index) => listingRow(listing, "auction", index)).sort((a, b) => a.at - b.at) : [];
       const binRows = buyNow.status === "live" ? buyNow.listings.map((listing, index) => listingRow(listing, "bin", index)).sort((a, b) => b.at - a.at) : [];
-      live.push(...(auctionRows.length > 0 ? auctionRows : [laneLinkRow(card, auctions, "auction", null, 0)]));
-      live.push(...(binRows.length > 0 ? binRows : [laneLinkRow(card, buyNow, "bin", null, 1)]));
+      const asked = finishTerm(variant?.key);
+      live.push(...(auctionRows.length > 0 ? auctionRows : [laneLinkRow(card, auctions, "auction", null, 0, asked)]));
+      live.push(...(binRows.length > 0 ? binRows : [laneLinkRow(card, buyNow, "bin", null, 1, asked)]));
     }
 
     if (filters.source === "all") {
@@ -252,6 +253,9 @@ export function buildFeed(input: {
     }
   } else {
     const grading: Grading = { company: filters.condition, grade: filters.grade };
+    const printing = quote?.variants.find((entry) => entry.key === variantKey) ?? null;
+    const asked = finishTerm(printing?.key);
+    const printingLabel = printing && asked ? ` · ${printing.label}` : "";
     const hits = (quote?.graded ?? []).filter((entry) => entry.company === grading.company && entry.grade === grading.grade);
     if (filters.source === "all") {
       hits.forEach((entry, index) => {
@@ -273,17 +277,17 @@ export function buildFeed(input: {
       ended.push({
         id: "ebay-sold-graded",
         source: "ebay",
-        label: `Sold on eBay · ${grading.company} ${grading.grade}`,
+        label: `Sold on eBay · ${grading.company} ${grading.grade}${printingLabel}`,
         sub: "Ended recently, newest first",
         value: "Open eBay",
         when: null,
-        href: ebaySearchUrl(card, "sold", grading),
+        href: ebaySearchUrl(card, "sold", grading, asked),
         link: true,
         at: TOP,
         order: 0,
       });
-      live.push(laneLinkRow(card, auctions, "auction", grading, 0));
-      live.push(laneLinkRow(card, buyNow, "bin", grading, 1));
+      live.push(laneLinkRow(card, auctions, "auction", grading, 0, asked));
+      live.push(laneLinkRow(card, buyNow, "bin", grading, 1, asked));
     }
     if (hits.length === 0) {
       notice = `No ${grading.company} ${grading.grade} price in the free feeds. TCGplayer and Cardmarket don’t publish graded prices here, so graded numbers need a paid feed such as Scrydex. These links open the eBay results for that grade.`;

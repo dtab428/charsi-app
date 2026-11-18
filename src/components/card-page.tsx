@@ -8,8 +8,8 @@ import { SiteHeader } from "@/components/account-menu";
 import { AddToCollection } from "@/components/add-to-collection";
 import { CardMarket, MarketFilters } from "@/components/market";
 import { PriceChart, type ChartPoint } from "@/components/price-chart";
-import { Pressable } from "@/components/ui/ripple";
-import { pickVariant, saleAverages } from "@/lib/facts";
+import { PrintingPicker } from "@/components/printing-picker";
+import { resolveActive, saleAverages } from "@/lib/facts";
 import { DEFAULT_FILTERS, type Filters } from "@/lib/feed";
 import { finishOf, finishRank, quoteDate, variantLabel } from "@/lib/format";
 import { emptyLane } from "@/lib/links";
@@ -80,9 +80,12 @@ export function CardPage({ card, printing }: { card: PublicCard; printing: strin
   }, [card.id]);
 
   const variants = [...(quote?.variants ?? [])].sort((a, b) => finishRank(a.key) - finishRank(b.key));
-  const selected = findPrinting(variants, printing) ?? pickVariant([], variants);
-  const activeKey = selected?.key ?? null;
+  const fromLink = findPrinting(variants, printing);
+  const active = resolveActive({ finish: null, modifiers: [], variants, pickedKey: fromLink?.key ?? null, loaded: Boolean(quote) });
+  const activeKey = active.key;
+  const selected = variants.find((entry) => entry.key === activeKey) ?? null;
   const finish = finishOf(activeKey) ?? finishOf(printing);
+  const dim = active.needsPick ? "pointer-events-none opacity-30 transition-opacity select-none" : "transition-opacity";
   const auctions = lanes?.auctions ?? emptyLane(card, "auction");
   const buyNow = lanes?.buyNow ?? emptyLane(card, "bin");
 
@@ -111,7 +114,7 @@ export function CardPage({ card, printing }: { card: PublicCard; printing: strin
           ← Back to the desk
         </Link>
         <div className="grid gap-6 lg:grid-cols-[minmax(0,19rem)_minmax(0,1fr)]">
-          <aside className="flex flex-col gap-4">
+          <aside inert={active.needsPick} className={`flex flex-col gap-4 ${dim}`}>
             {filters.condition === "raw" ? (
               <CardPicture src={selected?.image || card.large || card.small} alt={card.name} finish={finish} stamp={card.setCode || card.setName} width={480} height={670} priority className="rounded-xl bg-[#2a241e]" />
             ) : (
@@ -149,21 +152,11 @@ export function CardPage({ card, printing }: { card: PublicCard; printing: strin
             </div>
 
             {variants.length > 1 ? (
-              <nav aria-label="Printings" className="flex flex-wrap gap-1.5">
-                {variants.map((entry) => (
-                  <Pressable
-                    key={entry.key}
-                    sameTab
-                    href={cardHref(card.id, printingSlug(entry.key))}
-                    className={`rounded-full border px-3 py-1.5 text-sm ${entry.key === activeKey ? "border-transparent bg-[#efe6d4] text-[#241c14]" : "border-white/15 hover:bg-white/10"}`}
-                  >
-                    {variantLabel(entry.key)}
-                  </Pressable>
-                ))}
-              </nav>
+              <PrintingPicker variants={variants} activeKey={activeKey} needsPick={active.needsPick} missing={null} hrefFor={(key) => cardHref(card.id, printingSlug(key))} />
             ) : null}
 
-            <MarketFilters filters={filters} onChange={setFilters} />
+            <div className={`${active.needsPick ? "hidden" : "flex"} flex-col gap-5`}>
+            <MarketFilters filters={filters} onChange={setFilters} conditionLabel="Condition" />
 
             {filters.condition === "raw" ? (
               <div className="grid gap-4 md:grid-cols-2">
@@ -202,7 +195,7 @@ export function CardPage({ card, printing }: { card: PublicCard; printing: strin
                 pin={pin}
                 onPin={setPin}
                 filters={filters}
-                lockedKey={activeKey}
+                variantKey={activeKey}
                 hideDetailsLink
               />
             </section>
@@ -218,6 +211,7 @@ export function CardPage({ card, printing }: { card: PublicCard; printing: strin
                 </ul>
               </section>
             ) : null}
+            </div>
           </div>
         </div>
       </main>

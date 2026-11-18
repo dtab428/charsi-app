@@ -1,13 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Pressable } from "@/components/ui/ripple";
 import { Skeleton } from "@/components/ui/skeleton";
-import { pickVariant } from "@/lib/facts";
 import { buildFeed, COMPANIES, GRADES, type Company, type FeedRow, type FeedSource, type Filters, type SourceFilter } from "@/lib/feed";
-import { finishRank, variantLabel } from "@/lib/format";
 import { cardHref, printingSlug } from "@/lib/printing";
 import type { ListingLane, Pin, PriceQuote, PublicCard } from "@/lib/types";
 
@@ -51,16 +49,52 @@ function Group({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-export function MarketFilters({ filters, onChange }: { filters: Filters; onChange: (filters: Filters) => void }) {
-  const grades = filters.condition === "raw" ? [] : GRADES[filters.condition];
-  function condition(next: "raw" | Company) {
+export function ConditionControls({
+  condition,
+  grade,
+  onChange,
+  label = "Condition",
+}: {
+  condition: "raw" | Company;
+  grade: string;
+  onChange: (condition: "raw" | Company, grade: string) => void;
+  label?: string;
+}) {
+  const grades = condition === "raw" ? [] : GRADES[condition];
+  function pick(next: "raw" | Company) {
     if (next === "raw") {
-      onChange({ ...filters, condition: "raw" });
+      onChange("raw", grade);
       return;
     }
     const allowed = GRADES[next];
-    onChange({ ...filters, condition: next, grade: allowed.includes(filters.grade) ? filters.grade : "10" });
+    onChange(next, allowed.includes(grade) ? grade : "10");
   }
+  return (
+    <>
+      <Group label={label}>
+        <Chip active={condition === "raw"} onClick={() => pick("raw")}>
+          Raw
+        </Chip>
+        {COMPANIES.map((company) => (
+          <Chip key={company} active={condition === company} onClick={() => pick(company)}>
+            {company}
+          </Chip>
+        ))}
+      </Group>
+      {grades.length > 0 ? (
+        <Group label="Grade">
+          {grades.map((entry) => (
+            <Chip key={entry} active={grade === entry} onClick={() => onChange(condition, entry)}>
+              {entry}
+            </Chip>
+          ))}
+        </Group>
+      ) : null}
+    </>
+  );
+}
+
+export function MarketFilters({ filters, onChange, conditionLabel = "All cards" }: { filters: Filters; onChange: (filters: Filters) => void; conditionLabel?: string }) {
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-[#1c1814]/80 p-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-8">
       <Group label="Source">
@@ -70,25 +104,7 @@ export function MarketFilters({ filters, onChange }: { filters: Filters; onChang
           </Chip>
         ))}
       </Group>
-      <Group label="Condition">
-        <Chip active={filters.condition === "raw"} onClick={() => condition("raw")}>
-          Raw
-        </Chip>
-        {COMPANIES.map((company) => (
-          <Chip key={company} active={filters.condition === company} onClick={() => condition(company)}>
-            {company}
-          </Chip>
-        ))}
-      </Group>
-      {grades.length > 0 ? (
-        <Group label="Grade">
-          {grades.map((grade) => (
-            <Chip key={grade} active={filters.grade === grade} onClick={() => onChange({ ...filters, grade })}>
-              {grade}
-            </Chip>
-          ))}
-        </Group>
-      ) : null}
+      <ConditionControls label={conditionLabel} condition={filters.condition} grade={filters.grade} onChange={(condition, grade) => onChange({ ...filters, condition, grade })} />
     </div>
   );
 }
@@ -182,9 +198,8 @@ export function CardMarket({
   pin,
   onPin,
   filters,
-  lockedKey,
+  variantKey,
   hideDetailsLink,
-  onActiveKey,
 }: {
   card: PublicCard;
   modifiers: string[];
@@ -195,22 +210,15 @@ export function CardMarket({
   pin: Pin;
   onPin: (pin: Pin) => void;
   filters: Filters;
-  lockedKey?: string | null;
+  variantKey: string | null;
   hideDetailsLink?: boolean;
-  onActiveKey?: (key: string | null) => void;
 }) {
-  const [pickedKey, setVariantKey] = useState<string | null>(null);
-  const variantKey = lockedKey ?? pickedKey;
   const [showMore, setShowMore] = useState(false);
   const feed = useMemo(
     () => buildFeed({ card, modifiers, quote, variantKey, auctions, buyNow, pin, filters }),
     [card, modifiers, quote, variantKey, auctions, buyNow, pin, filters],
   );
 
-  const activeKey = variantKey ?? pickVariant(modifiers, quote?.variants ?? [])?.key ?? null;
-  useEffect(() => {
-    onActiveKey?.(activeKey);
-  }, [activeKey, onActiveKey]);
 
   if (quote === undefined && loading) {
     return (
@@ -222,28 +230,11 @@ export function CardMarket({
     );
   }
 
-  const variants = (filters.condition === "raw" ? quote?.variants ?? [] : [])
-    .slice()
-    .sort((a, b) => finishRank(a.key) - finishRank(b.key))
-    .slice(0, 6);
-  const bothFoils = variants.some((entry) => entry.key === "holofoil") && variants.some((entry) => entry.key === "reverseHolofoil");
-
   return (
     <div className="mt-4 flex flex-col gap-4">
-      {variants.length > 1 && !lockedKey ? (
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="mr-1 text-[10px] tracking-[0.14em] text-[#b3a694] uppercase">Printing</span>
-          {variants.map((entry) => (
-            <Chip key={entry.key} active={activeKey === entry.key} onClick={() => setVariantKey(entry.key)}>
-              {variantLabel(entry.key)}
-            </Chip>
-          ))}
-        </div>
-      ) : null}
-      {bothFoils ? <p className="text-[11px] leading-relaxed text-[#b3a694]">Holo and reverse holo are different TCGplayer printings. Reverse holo is the one with the set stamp.</p> : null}
       {!hideDetailsLink ? (
         <div>
-          <Pressable sameTab href={cardHref(card.id, activeKey ? printingSlug(activeKey) : null)} className="inline-flex items-center rounded-full border border-white/15 px-3 py-1.5 text-xs text-[#f3ecdf] hover:bg-white/10">
+          <Pressable sameTab href={cardHref(card.id, variantKey ? printingSlug(variantKey) : null)} className="inline-flex items-center rounded-full border border-white/15 px-3 py-1.5 text-xs text-[#f3ecdf] hover:bg-white/10">
             Open card page
           </Pressable>
         </div>

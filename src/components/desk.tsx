@@ -300,10 +300,10 @@ export function Desk() {
   const onSheet = items.filter((item) => item.included && item.card).length;
   const worth = items.reduce((sum, item) => {
     if (!item.card) return sum;
-    const amount = marketAmount(item.modifiers, quotes[item.card.id]);
+    const amount = marketAmount(item.modifiers, quotes[item.card.id], item.finish);
     return amount == null ? sum : sum + amount * item.quantity;
   }, 0);
-  const priced = items.filter((item) => item.card && marketAmount(item.modifiers, quotes[item.card.id]) != null).length;
+  const priced = items.filter((item) => item.card && marketAmount(item.modifiers, quotes[item.card.id], item.finish) != null).length;
   const listWorth = priced > 0 ? money(worth, "USD") : "";
   const skeletons = Math.min(8, Math.max(3, text.split(/\n|,/).filter((line) => line.trim()).length));
 

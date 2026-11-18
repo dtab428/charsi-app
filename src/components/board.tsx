@@ -4,12 +4,14 @@ import { CardPicture } from "@/components/card-picture";
 import { Slab } from "@/components/slab";
 import { Button } from "@/components/ui/button";
 import { AddToCollection } from "@/components/add-to-collection";
-import { CardMarket } from "@/components/market";
+import { CardMarket, ConditionControls } from "@/components/market";
+import { PrintingPicker } from "@/components/printing-picker";
 import { Pressable } from "@/components/ui/ripple";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { resolveActive } from "@/lib/facts";
 import { finishOf } from "@/lib/format";
 import { cardHref, printingSlug } from "@/lib/printing";
-import type { Filters } from "@/lib/feed";
+import { COMPANIES, GRADES, type Company, type Filters } from "@/lib/feed";
 import { emptyLane } from "@/lib/links";
 import type { ListingLane, Pin, PriceQuote, PublicCard, ResolveItem } from "@/lib/types";
 
@@ -27,6 +29,19 @@ function legal(card: PublicCard): string {
   if (card.expanded === "Legal") return "Expanded";
   if (card.standard === "Banned") return "Not Standard";
   return "Unlimited";
+}
+
+type View = { condition: "raw" | Company; grade: string };
+
+function typedView(grading: DeskItem["grading"]): View | null {
+  if (!grading) return null;
+  const company = COMPANIES.find((entry) => entry === grading.company);
+  if (!company) return null;
+  const allowed = GRADES[company];
+  if (grading.grade === null) return { condition: company, grade: allowed[0] ?? "10" };
+  const wanted = Number(grading.grade);
+  const nearest = allowed.slice().sort((a, b) => Math.abs(Number(a) - wanted) - Math.abs(Number(b) - wanted))[0];
+  return { condition: company, grade: nearest ?? "10" };
 }
 
 function Face({
@@ -90,7 +105,7 @@ function Actions({
           Save
         </Button>
       ) : null}
-      {item.card ? <AddToCollection card={item.card} printing={printing} initialCondition={filters.condition} initialGrade={filters.grade} /> : null}
+      {item.card ? <AddToCollection key={`${filters.condition}-${filters.grade}-${printing ?? ""}`} card={item.card} printing={printing} initialCondition={filters.condition} initialGrade={filters.grade} /> : null}
       <Button type="button" size="sm" variant="ghost" onClick={() => onRemove(item.key)}>
         Remove
       </Button>
@@ -130,7 +145,22 @@ function CardDesk({
   columns: 1 | 2;
 }) {
   const card = item.card;
-  const [activeKey, setActiveKey] = useState<string | null>(null);
+  const [pickedKey, setPickedKey] = useState<string | null>(null);
+  const [own, setOwn] = useState<View | null>(null);
+  const [useTyped, setUseTyped] = useState(true);
+  const seen = useRef(`${filters.condition}-${filters.grade}`);
+  useEffect(() => {
+    const now = `${filters.condition}-${filters.grade}`;
+    if (seen.current === now) return;
+    seen.current = now;
+    setOwn(null);
+    setUseTyped(false);
+  }, [filters.condition, filters.grade]);
+  const view = own ?? (useTyped ? typedView(item.grading) : null) ?? { condition: filters.condition, grade: filters.grade };
+  const cardFilters: Filters = { ...filters, condition: view.condition, grade: view.grade };
+  const active = resolveActive({ finish: item.finish, modifiers: item.modifiers, variants: quote?.variants ?? [], pickedKey, loaded: Boolean(quote) });
+  const activeKey = active.key;
+  const dim = active.needsPick ? "pointer-events-none opacity-30 transition-opacity select-none" : "transition-opacity";
   const printing = activeKey ? printingSlug(activeKey) : null;
   const finish = finishOf(activeKey);
   const picture = (card && quote && quote.variants.find((entry) => entry.key === activeKey)?.image) || card?.small || card?.large || "";
@@ -140,10 +170,10 @@ function CardDesk({
   return (
     <li className="rounded-[24px] border border-white/10 bg-[#1c1814]/80 p-3 sm:p-5">
       <div className="flex gap-3 sm:gap-5">
-        <div className={columns === 2 ? "w-24 shrink-0 self-start sm:w-32" : "w-24 shrink-0 self-start sm:w-40 lg:w-48"}>
+        <div inert={active.needsPick} className={`${dim} ${columns === 2 ? "w-24 shrink-0 self-start sm:w-32" : "w-24 shrink-0 self-start sm:w-40 lg:w-48"}`}>
           {card ? (
             <div>
-              <Face card={card} src={picture} finish={finish} slab={filters.condition === "raw" ? null : { company: filters.condition, grade: filters.grade }} onZoom={onZoom} />
+              <Face card={card} src={picture} finish={finish} slab={view.condition === "raw" ? null : { company: view.condition, grade: view.grade }} onZoom={onZoom} />
               {finish === "reverse" ? <p className="mt-1 text-center text-[10px] leading-tight text-[#b3a694]">Placed stamp. Not a photo of the stamped card.</p> : null}
             </div>
           ) : (
@@ -192,21 +222,35 @@ function CardDesk({
                 .join(" · ")}
             </p>
           ) : null}
-          {card && auctions && buyNow ? (
-            <CardMarket
-              card={card}
-              modifiers={item.modifiers}
-              quote={quote}
-              loading={loadingQuotes}
-              auctions={auctions}
-              buyNow={buyNow}
-              pin={pin}
-              onPin={onPin}
-              filters={filters}
-              onActiveKey={setActiveKey}
-            />
+          {card && quote ? (
+            <div className="mt-4">
+              <PrintingPicker variants={quote.variants} activeKey={activeKey} needsPick={active.needsPick} missing={active.missing} onPick={setPickedKey} />
+            </div>
           ) : null}
-          <Actions item={item} onInclude={onInclude} onRemove={onRemove} onCopy={onCopy} onSave={onSave} printing={printing} filters={filters} />
+          {card && !active.needsPick ? (
+            <div>
+              <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-white/10 bg-black/20 p-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-8">
+                <ConditionControls label="This card" condition={view.condition} grade={view.grade} onChange={(condition, grade) => setOwn({ condition, grade })} />
+              </div>
+              {auctions && buyNow ? (
+                <CardMarket
+                  card={card}
+                  modifiers={item.modifiers}
+                  quote={quote}
+                  loading={loadingQuotes}
+                  auctions={auctions}
+                  buyNow={buyNow}
+                  pin={pin}
+                  onPin={onPin}
+                  filters={cardFilters}
+                  variantKey={activeKey}
+                />
+              ) : null}
+            </div>
+          ) : null}
+          <div inert={active.needsPick} className={dim}>
+            <Actions item={item} onInclude={onInclude} onRemove={onRemove} onCopy={onCopy} onSave={onSave} printing={printing} filters={cardFilters} />
+          </div>
         </div>
       </div>
     </li>

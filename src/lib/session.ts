@@ -11,7 +11,7 @@ export type SessionUser = {
   id: string;
   name: string;
   avatar: string | null;
-  provider: "discord" | "local";
+  provider: "discord";
 };
 
 const production = process.env.NODE_ENV === "production";
@@ -64,15 +64,12 @@ export function unseal<T>(token: string | undefined): T | null {
   }
 }
 
-export const LOCAL_USER: SessionUser = { id: "local", name: "Local profile", avatar: null, provider: "local" };
-
 export async function currentUser(): Promise<SessionUser | null> {
   const store = await cookies();
   const session = unseal<SessionUser>(store.get(SESSION_COOKIE)?.value);
   if (session && /^[0-9]{5,25}$/.test(session.id)) {
     return { id: session.id, name: String(session.name).slice(0, 80), avatar: session.avatar ?? null, provider: "discord" };
   }
-  if (!production && !discordConfigured()) return LOCAL_USER;
   return null;
 }
 

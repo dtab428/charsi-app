@@ -76,3 +76,36 @@ test("resolves a set code and number with no name", () => {
   const item = one("TRR 15");
   assert.equal(item.card?.id, "ex7-15");
 });
+
+test("reads grader, grade, and reverse holo from a typed line", () => {
+  const item = one("PSA 9 Dragonite TRR reverse holo");
+  assert.equal(item.card?.id, "ex7-15");
+  assert.deepEqual(item.grading, { company: "PSA", grade: "9" });
+  assert.equal(item.finish, "reverse");
+});
+
+test("reads TAG with a grade and non holo", () => {
+  const item = one("TAG 9 Dragonite TRR non holo");
+  assert.equal(item.card?.id, "ex7-15");
+  assert.deepEqual(item.grading, { company: "TAG", grade: "9" });
+  assert.equal(item.finish, "normal");
+});
+
+test("a bare stamp is read as reverse and says so", () => {
+  const item = one("Dragonite TRR stamp");
+  assert.equal(item.finish, "reverse");
+  assert.equal(item.stampRead, true);
+});
+
+test("leaves the printing open when it is not stated", () => {
+  const item = one("Dragonite TRR");
+  assert.equal(item.finish, null);
+  assert.equal(item.grading, null);
+});
+
+test("Tag Team is not a grader and 9.5 stays a grade", () => {
+  const team = one("Pikachu & Zekrom Tag Team GX");
+  assert.equal(team.grading, null);
+  const half = parseList("BGS 9.5 Charizard base set 4")[0];
+  assert.deepEqual(half?.grading, { company: "BGS", grade: "9.5" });
+});

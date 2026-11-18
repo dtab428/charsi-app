@@ -8,7 +8,7 @@ import { Pressable } from "@/components/ui/ripple";
 
 export type Me = {
   configured: boolean;
-  user: { id: string; name: string; avatar: string | null; provider: "discord" | "local" } | null;
+  user: { id: string; name: string; avatar: string | null; provider: "discord" } | null;
 };
 
 export function useMe() {
@@ -36,7 +36,7 @@ export function useSigninNotice() {
     url.searchParams.delete("signin");
     window.history.replaceState(null, "", url.pathname + url.search);
     if (result === "ok") toast.success("Signed in with Discord.");
-    else if (result === "unconfigured") toast.error("Discord sign-in isn’t set up yet. The README has the three steps.");
+    else if (result === "unconfigured") toast.error("Discord sign-in isn’t set up on this server yet. Whoever hosts Charsi needs to add the Discord keys to its environment variables.");
     else toast.error("Discord sign-in didn’t finish. Try once more.");
   }, []);
 }
@@ -61,9 +61,9 @@ export function AccountMenu() {
         <Pressable href="/wishlist" sameTab className="inline-flex h-8 items-center rounded-full border border-white/15 px-3 text-sm hover:bg-white/10">
           My Wishlist
         </Pressable>
-        <Button type="button" size="sm" onClick={() => toast.error("Discord isn’t connected yet. Add DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, and SESSION_SECRET to .env.local. The README lists the three steps.")}>
+        <Pressable href="/api/auth/discord" sameTab className="inline-flex h-8 items-center rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground">
           Sign in with Discord
-        </Button>
+        </Pressable>
       </div>
     );
   }
@@ -76,7 +76,7 @@ export function AccountMenu() {
       <Pressable href="/wishlist" sameTab className="inline-flex h-8 items-center rounded-full border border-white/15 px-3 text-sm hover:bg-white/10">
         My Wishlist
       </Pressable>
-      {me.user?.provider === "discord" ? (
+      {me.user ? (
         <div className="flex items-center gap-2">
           {me.user.avatar ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -88,22 +88,9 @@ export function AccountMenu() {
           </Button>
         </div>
       ) : (
-        <>
-          {me.user?.provider === "local" ? <span className="text-sm text-[#b3a694]">Local profile</span> : null}
-          {me.configured ? (
-            <Pressable href="/api/auth/discord" sameTab className="inline-flex h-8 items-center rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground">
-              Sign in with Discord
-            </Pressable>
-          ) : (
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => toast.error("Discord isn’t connected yet. Add DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, and SESSION_SECRET to .env.local. The README lists the three steps.")}
-            >
-              Sign in with Discord
-            </Button>
-          )}
-        </>
+        <Pressable href="/api/auth/discord" sameTab className="inline-flex h-8 items-center rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground">
+          Sign in with Discord
+        </Pressable>
       )}
     </div>
   );

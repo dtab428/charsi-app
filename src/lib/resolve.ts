@@ -199,8 +199,8 @@ function correctionsFor(card: CatalogCard, nameTokens: string[]): string[] {
 
 function notesFor(line: ParsedLine): string[] {
   const notes: string[] = [];
-  if (line.modifiers.includes("stamp")) {
-    notes.push("Stamp noted. Stamped copies are rarely their own catalog row — check the card in hand.");
+  if (line.stampRead) {
+    notes.push("“Stamp” is read as the reverse holo, the printing that carries the set stamp. Pick another printing below if you meant something else.");
   }
   if (line.modifiers.includes("shadowless")) {
     notes.push("Shadowless isn’t its own row. Check the border.");
@@ -227,6 +227,9 @@ function resolveLine(catalog: IndexedCatalog, line: ParsedLine): ResolveItem {
     raw: line.raw,
     quantity: line.quantity,
     modifiers: line.modifiers,
+    grading: line.grading,
+    finish: line.finish,
+    stampRead: line.stampRead,
     notes: notesFor(line),
     corrections: [] as string[],
   };

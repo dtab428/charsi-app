@@ -7,7 +7,7 @@ import type { Finish } from "@/lib/format";
 function Stamp({ label }: { label: string }) {
   const text = (label || "R").slice(0, 4).toUpperCase();
   return (
-    <span className="pointer-events-none absolute" style={{ left: "68%", top: "33%", width: "18%" }} title="Placed set stamp. Not a photo of the stamped card.">
+    <span className="pointer-events-none absolute" style={{ left: "66%", top: "32%", width: "22%" }} title="Placed set stamp. Not a photo of the stamped card.">
       <svg viewBox="0 0 64 64" className="h-auto w-full drop-shadow-[0_1px_1px_rgba(0,0,0,0.65)]" aria-hidden>
         <circle cx="32" cy="32" r="30" fill="#c6a15b" />
         <circle cx="32" cy="32" r="24" fill="none" stroke="#5c4316" strokeWidth="1.5" />
@@ -21,7 +21,14 @@ function Stamp({ label }: { label: string }) {
 }
 
 function Mark({ finish, stamp }: { finish: Finish | null; stamp: string }) {
-  if (finish === "reverse") return <Stamp label={stamp} />;
+  if (finish === "reverse") {
+    return (
+      <>
+        <Stamp label={stamp} />
+        <span className="pointer-events-none absolute top-1.5 left-1.5 rounded-full bg-[#c6a15b] px-2 py-0.5 text-[10px] font-medium tracking-[0.12em] text-[#241c14] uppercase">Reverse</span>
+      </>
+    );
+  }
   if (finish === "holo") {
     return (
       <>

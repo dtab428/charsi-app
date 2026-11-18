@@ -61,6 +61,9 @@ export type ResolveItem = {
   raw: string;
   quantity: number;
   modifiers: string[];
+  grading: { company: string; grade: string | null } | null;
+  finish: "normal" | "holo" | "reverse" | null;
+  stampRead: boolean;
   status: ResolveStatus;
   confidence: number;
   notes: string[];

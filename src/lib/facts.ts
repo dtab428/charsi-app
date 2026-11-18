@@ -1,4 +1,32 @@
+import { finishOf, type Finish } from "./format";
 import type { EuroSales, PriceQuote, VariantQuote } from "./types";
+
+export function pickFinish(finish: Finish, variants: VariantQuote[]): VariantQuote | null {
+  const hits = variants.filter((variant) => finishOf(variant.key) === finish);
+  return hits.find((variant) => variant.market != null) ?? hits[0] ?? null;
+}
+
+export type ActiveVariant = { key: string | null; needsPick: boolean; missing: Finish | null };
+
+export function resolveActive(input: {
+  finish: Finish | null;
+  modifiers: string[];
+  variants: VariantQuote[];
+  pickedKey: string | null;
+  loaded: boolean;
+}): ActiveVariant {
+  const { finish, modifiers, variants, pickedKey, loaded } = input;
+  if (pickedKey && variants.some((variant) => variant.key === pickedKey)) return { key: pickedKey, needsPick: false, missing: null };
+  let missing: Finish | null = null;
+  if (finish) {
+    const hit = pickFinish(finish, variants);
+    if (hit) return { key: hit.key, needsPick: false, missing: null };
+    if (loaded && variants.length > 0) missing = finish;
+  }
+  const finishes = new Set(variants.map((variant) => finishOf(variant.key)).filter(Boolean));
+  const needsPick = loaded && !finish && finishes.size >= 2;
+  return { key: needsPick ? null : pickVariant(modifiers, variants)?.key ?? null, needsPick, missing };
+}
 
 export function pickVariant(modifiers: string[], variants: VariantQuote[]): VariantQuote | null {
   if (variants.length === 0) return null;
@@ -35,7 +63,8 @@ export function saleAverages(quote: PriceQuote | null | undefined, variant: Vari
   return { ...picked, currency: "EUR" };
 }
 
-export function marketAmount(modifiers: string[], quote: PriceQuote | null | undefined): number | null {
-  const variant = pickVariant(modifiers, quote?.variants ?? []);
+export function marketAmount(modifiers: string[], quote: PriceQuote | null | undefined, finish?: Finish | null): number | null {
+  const variants = quote?.variants ?? [];
+  const variant = (finish ? pickFinish(finish, variants) : null) ?? pickVariant(modifiers, variants);
   return variant?.market ?? null;
 }

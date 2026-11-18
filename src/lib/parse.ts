@@ -1,8 +1,49 @@
 const MODIFIER_PHRASES: [string, string][] = [
+  ["non holofoil", "nonholo"],
+  ["non holo", "nonholo"],
+  ["nonholo", "nonholo"],
+  ["non foil", "nonholo"],
+  ["reverse holofoil", "reverse"],
+  ["reverse holo", "reverse"],
+  ["reverse foil", "reverse"],
+  ["rev holo", "reverse"],
   ["first edition", "first"],
   ["1st edition", "first"],
   ["pre release", "prerelease"],
 ];
+
+const COMPANY_NAMES: Record<string, string> = { psa: "PSA", bgs: "BGS", beckett: "BGS", cgc: "CGC", sgc: "SGC", tag: "TAG" };
+const GRADED_WITH_NUMBER = /\b(psa|bgs|beckett|cgc|sgc|tag)\s*[-:]?\s*(10|[1-9](?:\.5)?)(?!\d)/i;
+const GRADED_WORD_ONLY = /\b(psa|bgs|beckett|cgc|sgc)\b/i;
+
+export type LineFinish = "normal" | "holo" | "reverse";
+export type LineGrading = { company: string; grade: string | null };
+
+function pullGrading(raw: string): { text: string; grading: LineGrading | null } {
+  const withGrade = GRADED_WITH_NUMBER.exec(raw);
+  if (withGrade) {
+    return {
+      text: `${raw.slice(0, withGrade.index)} ${raw.slice(withGrade.index + withGrade[0].length)}`,
+      grading: { company: COMPANY_NAMES[(withGrade[1] ?? "").toLowerCase()] ?? "PSA", grade: withGrade[2] ?? null },
+    };
+  }
+  const word = GRADED_WORD_ONLY.exec(raw);
+  if (word) {
+    return {
+      text: `${raw.slice(0, word.index)} ${raw.slice(word.index + word[0].length)}`,
+      grading: { company: COMPANY_NAMES[(word[1] ?? "").toLowerCase()] ?? "PSA", grade: null },
+    };
+  }
+  return { text: raw, grading: null };
+}
+
+function finishFrom(modifiers: string[]): { finish: LineFinish | null; stampRead: boolean } {
+  if (modifiers.includes("reverse")) return { finish: "reverse", stampRead: false };
+  if (modifiers.includes("nonholo")) return { finish: "normal", stampRead: false };
+  if (modifiers.includes("holo")) return { finish: "holo", stampRead: false };
+  if (modifiers.includes("stamp")) return { finish: "reverse", stampRead: true };
+  return { finish: null, stampRead: false };
+}
 
 const MODIFIER_WORDS: Record<string, string> = {
   stamp: "stamp",
@@ -30,6 +71,9 @@ export type ParsedLine = {
   modifiers: string[];
   number: string | null;
   tokens: string[];
+  grading: LineGrading | null;
+  finish: LineFinish | null;
+  stampRead: boolean;
 };
 
 export function normalize(value: string): string {
@@ -103,7 +147,8 @@ function pullExplicitNumber(phrase: string): { phrase: string; number: string | 
 export function parseList(text: string): ParsedLine[] {
   const lines: ParsedLine[] = [];
   for (const raw of splitList(text)) {
-    let phrase = normalize(raw).replace(/\b\d{1,3}\s*hp\b/g, " ");
+    const graded = pullGrading(raw);
+    let phrase = normalize(graded.text).replace(/\b\d{1,3}\s*hp\b/g, " ");
     if (!phrase || SKIP_LINES.has(phrase)) continue;
     const quantity = pullQuantity(phrase);
     phrase = quantity.phrase;
@@ -119,12 +164,16 @@ export function parseList(text: string): ParsedLine[] {
       }
     }
     if (tokens.length === 0 && !number) continue;
+    const asked = finishFrom(modified.modifiers);
     lines.push({
       raw,
       quantity: quantity.quantity,
       modifiers: modified.modifiers,
       number,
       tokens,
+      grading: graded.grading,
+      finish: asked.finish,
+      stampRead: asked.stampRead,
     });
   }
   return lines;

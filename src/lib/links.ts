@@ -7,9 +7,17 @@ export function searchPhrase(card: PublicCard): string {
 
 export type Grading = { company: string; grade: string };
 
-export function ebaySearchUrl(card: PublicCard, lane: "auction" | "bin" | "sold", grading?: Grading | null): string {
+export function finishTerm(variantKey: string | null | undefined): string {
+  if (!variantKey) return "";
+  if (/reverse/i.test(variantKey)) return "reverse holo";
+  if (/holo/i.test(variantKey)) return "holo";
+  return "";
+}
+
+export function ebaySearchUrl(card: PublicCard, lane: "auction" | "bin" | "sold", grading?: Grading | null, finish?: string): string {
   const url = new URL("https://www.ebay.com/sch/183454/i.html");
-  const phrase = grading ? `${searchPhrase(card)} ${grading.company} ${grading.grade}` : searchPhrase(card);
+  const parts = [searchPhrase(card), finish ?? "", grading ? `${grading.company} ${grading.grade}` : ""];
+  const phrase = parts.filter(Boolean).join(" ");
   url.searchParams.set("_nkw", phrase);
   if (lane === "auction") {
     url.searchParams.set("LH_Auction", "1");
