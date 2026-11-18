@@ -362,7 +362,7 @@ export function Desk() {
         </div>
       </header>
 
-      <main className={`mx-auto flex w-full flex-col gap-8 px-4 py-6 ${columns === 2 ? "max-w-[1480px]" : "max-w-[1200px]"}`}>
+      <main className="mx-auto flex w-full max-w-[1200px] flex-col gap-8 px-4 py-6">
         <section className="rounded-[28px] bg-[#efe6d4] p-5 text-[#241c14] shadow-[0_24px_60px_rgba(0,0,0,0.35)] sm:p-7">
           <div className="flex flex-wrap items-baseline justify-between gap-3">
             <h2 className="font-serif text-3xl italic">The list</h2>
@@ -493,7 +493,7 @@ export function Desk() {
         ) : null}
       </main>
 
-      <footer className={`mx-auto px-4 pt-4 pb-10 text-xs leading-relaxed text-[#b3a694] ${columns === 2 ? "max-w-[1480px]" : "max-w-[1200px]"}`}>
+      <footer className="mx-auto max-w-[1200px] px-4 pt-4 pb-10 text-xs leading-relaxed text-[#b3a694]">
         Card data and images are © Pokémon, Nintendo, Creatures, and GAME FREAK. Charsi isn’t affiliated with them, or with eBay, TCGplayer, Cardmarket, Goldin, Facebook, or Discord. Prices come from TCGdex (TCGplayer and Cardmarket) unless a Scrydex key is connected. eBay listings load with an eBay application key. Goldin, Facebook Marketplace, and Discord are links and pins, not a scrape.
       </footer>
 
