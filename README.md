@@ -69,7 +69,7 @@ Copy `.env.example` to `.env.local` if you want live feeds beyond the public fal
 | --- | --- |
 | `SCRYDEX_API_KEY` and `SCRYDEX_TEAM_ID` | Preferred quotes: raw prices, trends, and graded prices. Also the route for other trading card games. [Scrydex](https://scrydex.com) |
 | `POKEMON_TCG_API_KEY` | Higher rate limit on the public Pokémon TCG API, used when Scrydex is not set |
-| `EBAY_CLIENT_ID` and `EBAY_CLIENT_SECRET` | Live eBay auctions and Buy It Now in the feed |
+| `EBAY_CLIENT_ID` and `EBAY_CLIENT_SECRET` | eBay auctions and Buy It Now in the feed. A sandbox key (SBX) talks to eBay’s test site, which has no live Pokémon sales. A production key lists real auctions. `EBAY_DEV_ID` is unused by this feed. |
 | `NEXT_PUBLIC_EBAY_CAMPAIGN_ID` | eBay Partner Network campaign id. Search and listing links then carry it, so a purchase can credit you. Blank leaves the link plain. |
 | `NEXT_PUBLIC_TCGPLAYER_PARTNER_LINK` | Your Impact partner link for TCGplayer (`https://partner.tcgplayer.com/c/...`). Product and search links are wrapped with it. Cardmarket has no equivalent link program. |
 | `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `SESSION_SECRET` | Discord sign-in for My Collection |

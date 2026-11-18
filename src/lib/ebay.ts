@@ -10,6 +10,19 @@ export function ebayConfigured(): boolean {
   return Boolean(process.env.EBAY_CLIENT_ID && process.env.EBAY_CLIENT_SECRET);
 }
 
+function ebaySandbox(): boolean {
+  const asked = process.env.EBAY_ENV?.trim().toLowerCase();
+  if (asked === "sandbox") return true;
+  if (asked === "production") return false;
+  const id = process.env.EBAY_CLIENT_ID ?? "";
+  const secret = process.env.EBAY_CLIENT_SECRET ?? "";
+  return id.includes("-SBX-") || secret.startsWith("SBX-");
+}
+
+function ebayApi(): string {
+  return ebaySandbox() ? "https://api.sandbox.ebay.com" : "https://api.ebay.com";
+}
+
 function lane(card: PublicCard, kind: "auction" | "bin", status: ListingLane["status"], listings: Listing[], notice: string | null): ListingLane {
   return { status, listings, searchUrl: ebaySearchUrl(card, kind), notice };
 }
@@ -19,7 +32,8 @@ function safeEbayUrl(value: unknown): string | null {
   try {
     const url = new URL(value);
     if (url.protocol !== "https:") return null;
-    if (url.hostname !== "www.ebay.com" && url.hostname !== "ebay.com") return null;
+    const hosts = ebaySandbox() ? ["www.ebay.com", "ebay.com", "www.sandbox.ebay.com", "sandbox.ebay.com"] : ["www.ebay.com", "ebay.com"];
+    if (!hosts.includes(url.hostname)) return null;
     return url.toString();
   } catch {
     return null;
@@ -36,7 +50,7 @@ async function appToken(): Promise<string | null> {
     scope: "https://api.ebay.com/oauth/api_scope",
   });
   try {
-    const response = await fetch("https://api.ebay.com/identity/v1/oauth2/token", {
+    const response = await fetch(`${ebayApi()}/identity/v1/oauth2/token`, {
       method: "POST",
       signal: AbortSignal.timeout(10_000),
       headers: {
@@ -97,7 +111,7 @@ async function search(card: PublicCard, kind: "auction" | "bin"): Promise<Listin
   if (!access) {
     return lane(card, kind, "error", [], "eBay didn’t accept the application key.");
   }
-  const url = new URL("https://api.ebay.com/buy/browse/v1/item_summary/search");
+  const url = new URL(`${ebayApi()}/buy/browse/v1/item_summary/search`);
   url.searchParams.set("q", `Pokemon ${card.name} ${card.setName} ${card.number}`.replace(/\s+/g, " "));
   url.searchParams.set("category_ids", "183454");
   url.searchParams.set("limit", "6");
@@ -116,7 +130,8 @@ async function search(card: PublicCard, kind: "auction" | "bin"): Promise<Listin
       return failed;
     }
     const listings = listingsFrom(await response.json());
-    const result = lane(card, kind, listings.length ? "live" : "empty", listings, null);
+    const notice = listings.length || !ebaySandbox() ? null : "Sandbox key connected. eBay’s test site has no live Pokémon listings.";
+    const result = lane(card, kind, listings.length ? "live" : "empty", listings, notice);
     cache.set(key, { at: Date.now(), lane: result });
     return result;
   } catch {
@@ -126,11 +141,13 @@ async function search(card: PublicCard, kind: "auction" | "bin"): Promise<Listin
 
 export async function marketFor(cards: PublicCard[]): Promise<{
   configured: boolean;
+  sandbox: boolean;
   results: { id: string; auctions: ListingLane; buyNow: ListingLane }[];
 }> {
   if (!ebayConfigured()) {
     return {
       configured: false,
+      sandbox: false,
       results: cards.map((card) => ({
         id: card.id,
         auctions: lane(card, "auction", "unconfigured", [], null),
@@ -149,5 +166,5 @@ export async function marketFor(cards: PublicCard[]): Promise<{
     }
   });
   await Promise.all(workers);
-  return { configured: true, results };
+  return { configured: true, sandbox: ebaySandbox(), results };
 }

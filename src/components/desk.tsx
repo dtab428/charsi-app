@@ -62,6 +62,7 @@ export function Desk() {
   const [loadingQuotes, setLoadingQuotes] = useState(false);
   const [lanes, setLanes] = useState<Record<string, { auctions: ListingLane; buyNow: ListingLane }>>({});
   const [ebayOn, setEbayOn] = useState<boolean | null>(null);
+  const [ebaySandbox, setEbaySandbox] = useState(false);
   const [pins, setPins] = useState<Record<string, Pin>>({});
   const [zoom, setZoom] = useState<PublicCard | null>(null);
   const [sheeting, setSheeting] = useState(false);
@@ -137,8 +138,9 @@ export function Desk() {
         setEbayOn(false);
         return;
       }
-      const payload = await readJson<{ configured: boolean; results: { id: string; auctions: ListingLane; buyNow: ListingLane }[] }>(response);
+      const payload = await readJson<{ configured: boolean; sandbox?: boolean; results: { id: string; auctions: ListingLane; buyNow: ListingLane }[] }>(response);
       setEbayOn(payload.configured);
+      setEbaySandbox(Boolean(payload.sandbox));
       setLanes((current) => {
         const next = { ...current };
         for (const result of payload.results ?? []) next[result.id] = { auctions: result.auctions, buyNow: result.buyNow };
@@ -439,7 +441,8 @@ export function Desk() {
                 <p className="mt-1 max-w-2xl text-xs leading-relaxed text-[#b3a694]">
                   {quoteSource || "Pictures are ready. Quotes follow."}
                   {ebayOn === false ? " eBay auctions and Buy It Now open as live searches until a key is connected." : ""}
-                  {ebayOn === true ? " eBay auctions and Buy It Now are live." : ""}
+                  {ebayOn === true && ebaySandbox ? " eBay sandbox key is connected. That test site has no live Pokémon auctions." : ""}
+                  {ebayOn === true && !ebaySandbox ? " eBay auctions and Buy It Now are live." : ""}
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">

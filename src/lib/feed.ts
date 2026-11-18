@@ -87,7 +87,7 @@ function laneLinkRow(card: PublicCard, lane: ListingLane, kind: "auction" | "bin
   let sub = kind === "auction" ? "Ending soonest first" : "Newest listings first";
   if (!grading) {
     if (lane.status === "unconfigured") sub += ". Live listings appear here once an eBay key is connected.";
-    else if (lane.status === "empty") sub = "No live listings right now. Open eBay to check.";
+    else if (lane.status === "empty") sub = lane.notice ?? "No live listings right now. Open eBay to check.";
     else if (lane.status === "error") sub = lane.notice ?? "eBay didn’t answer. Open eBay instead.";
   }
   return {
