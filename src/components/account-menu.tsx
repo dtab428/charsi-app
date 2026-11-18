@@ -36,7 +36,7 @@ export function useSigninNotice() {
     url.searchParams.delete("signin");
     window.history.replaceState(null, "", url.pathname + url.search);
     if (result === "ok") toast.success("Signed in with Discord.");
-    else if (result === "unconfigured") toast.error("Discord isn’t configured on this host. In Vercel, add DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, and SESSION_SECRET under Settings → Environment Variables, redeploy, and add this site’s /api/auth/discord/callback URL in the Discord app.");
+    else if (result === "unconfigured") toast.error(`Sign-in needs the site owner to finish setup. Discord redirect to add: ${window.location.origin}/api/auth/discord/callback. Vercel variables to add: DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, SESSION_SECRET. Then redeploy.`, { duration: 20000 });
     else toast.error("Discord sign-in didn’t finish. Try once more.");
   }, []);
 }

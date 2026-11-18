@@ -1,25 +1,91 @@
 const CARD = /^[a-z0-9][a-z0-9-]{1,48}$/i;
 const PRINTING = /^[a-z0-9-]{1,40}$/;
+const CONDITION = /^(raw|[a-z]{2,4})$/i;
+const GRADE = /^[0-9]{1,2}(\.5)?$/;
+const SOURCES = ["tcgplayer", "cardmarket", "ebay"];
 
-export type DeskShare = { q: string; card: string | null; printing: string | null };
+export type LineShare = {
+  removed: boolean;
+  card: string | null;
+  printing: string | null;
+  condition: string | null;
+  grade: string | null;
+  off: boolean;
+};
 
-export function deskShareFrom(search: string): DeskShare | null {
-  const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
-  const q = params.get("q")?.replace(/\s+/g, " ").trim() ?? "";
-  if (!q || q.length > 2000) return null;
-  const card = params.get("card");
-  const printing = params.get("printing");
+export type FilterShare = { source: string | null; condition: string | null; grade: string | null };
+
+export type DeskShare = { q: string; lines: LineShare[]; filters: FilterShare };
+
+export const EMPTY_LINE: LineShare = { removed: false, card: null, printing: null, condition: null, grade: null, off: false };
+
+function clean(q: string): string {
+  return q
+    .replace(/[ \t]+/g, " ")
+    .replace(/ ?\n ?/g, "\n")
+    .trim();
+}
+
+function parseLine(token: string): LineShare {
+  if (token === "-") return { ...EMPTY_LINE, removed: true };
+  const [card, printing, condition, grade, off] = token.split("_");
   return {
-    q,
+    removed: false,
     card: card && CARD.test(card) ? card : null,
     printing: printing && PRINTING.test(printing) ? printing : null,
+    condition: condition && CONDITION.test(condition) ? condition : null,
+    grade: grade && GRADE.test(grade) ? grade : null,
+    off: off === "off",
   };
 }
 
-export function deskShareHref(q: string, card?: string | null, printing?: string | null): string {
+function lineToken(line: LineShare): string {
+  if (line.removed) return "-";
+  const parts = [
+    line.card && CARD.test(line.card) ? line.card : "",
+    line.card && line.printing && PRINTING.test(line.printing) ? line.printing : "",
+    line.condition && CONDITION.test(line.condition) ? line.condition : "",
+    line.condition && line.grade && GRADE.test(line.grade) ? line.grade : "",
+    line.off ? "off" : "",
+  ];
+  while (parts.length && !parts[parts.length - 1]) parts.pop();
+  return parts.join("_");
+}
+
+export function deskShareFrom(search: string): DeskShare | null {
+  const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+  const q = clean(params.get("q") ?? "");
+  if (!q || q.length > 2000) return null;
+  let lines = params.getAll("i").slice(0, 80).map(parseLine);
+  if (lines.length === 0) {
+    const card = params.get("card");
+    const printing = params.get("printing");
+    if (card) lines = [parseLine(`${card}_${printing ?? ""}`)];
+  }
+  const source = params.get("src");
+  const condition = params.get("cond");
+  const grade = params.get("grade");
+  return {
+    q,
+    lines,
+    filters: {
+      source: source && SOURCES.includes(source) ? source : null,
+      condition: condition && CONDITION.test(condition) ? condition : null,
+      grade: grade && GRADE.test(grade) ? grade : null,
+    },
+  };
+}
+
+export function deskShareHref(q: string, lines: LineShare[] = [], filters: Partial<FilterShare> = {}): string {
   const params = new URLSearchParams();
-  params.set("q", q.trim());
-  if (card && CARD.test(card)) params.set("card", card);
-  if (card && printing && PRINTING.test(printing)) params.set("printing", printing);
+  params.set("q", clean(q));
+  const tokens = lines.map(lineToken);
+  while (tokens.length && !tokens[tokens.length - 1]) tokens.pop();
+  tokens.forEach((token) => params.append("i", token));
+  if (filters.source && SOURCES.includes(filters.source)) params.set("src", filters.source);
+  if (filters.condition && CONDITION.test(filters.condition) && filters.condition.toLowerCase() !== "raw") {
+    params.set("cond", filters.condition);
+    if (filters.grade && GRADE.test(filters.grade)) params.set("grade", filters.grade);
+  }
   return `/?${params.toString()}`;
 }

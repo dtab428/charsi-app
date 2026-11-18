@@ -16,7 +16,9 @@ import { COMPANIES, GRADES, type Company, type Filters } from "@/lib/feed";
 import { emptyLane } from "@/lib/links";
 import type { ListingLane, Pin, PriceQuote, PublicCard, ResolveItem } from "@/lib/types";
 
-export type DeskItem = ResolveItem & { key: string; included: boolean; picked: string | null };
+export type View = { condition: "raw" | Company; grade: string };
+
+export type DeskItem = ResolveItem & { key: string; slot: number; included: boolean; picked: string | null; view: View | null };
 
 const emptyPin: Pin = { source: "discord", price: "", note: "" };
 
@@ -31,8 +33,6 @@ function legal(card: PublicCard): string {
   if (card.standard === "Banned") return "Not Standard";
   return "";
 }
-
-type View = { condition: "raw" | Company; grade: string };
 
 function typedView(grading: DeskItem["grading"]): View | null {
   if (!grading) return null;
@@ -128,6 +128,7 @@ function CardDesk({
   onRemove,
   onChoose,
   onPick,
+  onView,
   onCopy,
   onSave,
   onZoom,
@@ -146,6 +147,7 @@ function CardDesk({
   onRemove: (key: string) => void;
   onChoose: (key: string, card: PublicCard) => void;
   onPick: (key: string, cardId: string, variantKey: string) => void;
+  onView: (key: string, view: View) => void;
   onCopy: (card: PublicCard) => void;
   onSave: (card: PublicCard) => void;
   onZoom: (card: PublicCard) => void;
@@ -162,17 +164,15 @@ function CardDesk({
     })),
   );
   const loaded = family.length > 0 && family.every((member) => quotes[member.id] !== undefined);
-  const [own, setOwn] = useState<View | null>(null);
   const [useTyped, setUseTyped] = useState(true);
   const seen = useRef(`${filters.condition}-${filters.grade}`);
   useEffect(() => {
     const now = `${filters.condition}-${filters.grade}`;
     if (seen.current === now) return;
     seen.current = now;
-    setOwn(null);
     setUseTyped(false);
   }, [filters.condition, filters.grade]);
-  const view = own ?? (useTyped ? typedView(item.grading) : null) ?? { condition: filters.condition, grade: filters.grade };
+  const view = item.view ?? (useTyped ? typedView(item.grading) : null) ?? { condition: filters.condition, grade: filters.grade };
   const cardFilters: Filters = { ...filters, condition: view.condition, grade: view.grade };
   const active = resolveActive({ finish: item.finish, modifiers: item.modifiers, variants: printings, pickedKey, loaded });
   const activeKey = active.key;
@@ -279,7 +279,7 @@ function CardDesk({
           {shown && !hold ? (
             <div>
               <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-white/10 bg-black/20 p-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-8">
-                <ConditionControls label="This card" condition={view.condition} grade={view.grade} onChange={(condition, grade) => setOwn({ condition, grade })} />
+                <ConditionControls label="This card" condition={view.condition} grade={view.grade} onChange={(condition, grade) => onView(item.key, { condition, grade })} />
               </div>
               {auctions && buyNow ? (
                 <CardMarket
@@ -318,6 +318,7 @@ export function Board({
   onRemove,
   onChoose,
   onPick,
+  onView,
   onCopy,
   onSave,
   onZoom,
@@ -334,6 +335,7 @@ export function Board({
   onRemove: (key: string) => void;
   onChoose: (key: string, card: PublicCard) => void;
   onPick: (key: string, cardId: string, variantKey: string) => void;
+  onView: (key: string, view: View) => void;
   onCopy: (card: PublicCard) => void;
   onSave: (card: PublicCard) => void;
   onZoom: (card: PublicCard) => void;
@@ -358,6 +360,7 @@ export function Board({
             onRemove={onRemove}
             onChoose={onChoose}
             onPick={onPick}
+            onView={onView}
             onCopy={onCopy}
             onSave={onSave}
             onZoom={onZoom}

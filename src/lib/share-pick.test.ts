@@ -1,44 +1,47 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { applySharedPrinting, type PickLine } from "./share-pick";
-import type { VariantQuote } from "./types";
+import { withSharedCard, withSharedPrinting, type PickLine } from "./share-pick";
+import type { PublicCard, VariantQuote } from "./types";
+
+function card(id: string, setId = "ex9"): PublicCard {
+  return { id, setId, name: "Gardevoir" } as PublicCard;
+}
 
 function variant(key: string): VariantQuote {
   return { key, label: key, market: 10, low: null, mid: null, high: null, currency: "USD" };
 }
 
-function line(key: string, picked: string | null = null): PickLine {
-  return {
-    key,
-    card: { id: "ex9-4", setId: "ex9", name: "Gardevoir" },
-    alternatives: [],
-    picked,
-    status: "matched",
-    included: true,
-  };
+function line(picked: string | null = null): PickLine {
+  return { card: card("ex9-4"), alternatives: [], picked, status: "matched", included: true };
 }
 
 const quotes = { "ex9-4": { variants: [variant("normal"), variant("holofoil"), variant("reverseHolofoil")] } };
 
-test("a click on one of two identical lines leaves the other line alone", () => {
-  const items = [line("line-a", "holofoil"), line("line-b")];
-  const applied = applySharedPrinting(items, quotes, { card: "ex9-4", printing: "reverse-holo", line: "line-b" });
-  assert.equal(applied.items[0].picked, "holofoil");
-  assert.equal(applied.items[1].picked, "reverseHolofoil");
-  assert.equal(applied.line, "line-b");
+test("a printing from the address lands on the line it was written for", () => {
+  const items = [line("holofoil"), line()];
+  const restored = withSharedPrinting(items[1], "reverse-holo", quotes);
+  assert.equal(restored.done, true);
+  assert.equal(restored.item.picked, "reverseHolofoil");
+  assert.equal(items[0].picked, "holofoil");
   assert.equal(items[1].picked, null);
 });
 
-test("an opened address fills only the first matching line", () => {
-  const applied = applySharedPrinting([line("line-a"), line("line-b")], quotes, { card: "ex9-4", printing: "holofoil", line: null });
-  assert.equal(applied.items[0].picked, "holofoil");
-  assert.equal(applied.items[1].picked, null);
-  assert.equal(applied.line, "line-a");
+test("a printing waits until the line has its quotes", () => {
+  const waiting = withSharedPrinting(line(), "holo", {});
+  assert.equal(waiting.done, false);
+  assert.equal(waiting.item.picked, null);
 });
 
-test("a later click does not rewrite the line that was restored from the address", () => {
-  const restored = applySharedPrinting([line("line-a"), line("line-b")], quotes, { card: "ex9-4", printing: "holofoil", line: null });
-  const clicked = applySharedPrinting(restored.items, quotes, { card: "ex9-4", printing: "normal", line: "line-b" });
-  assert.equal(clicked.items[0].picked, "holofoil");
-  assert.equal(clicked.items[1].picked, "normal");
+test("a printing the card does not have is dropped", () => {
+  const missing = withSharedPrinting(line(), "first-edition-holo", quotes);
+  assert.equal(missing.done, true);
+  assert.equal(missing.item.picked, null);
+});
+
+test("a shared card is restored from the line's own alternatives", () => {
+  const item: PickLine = { card: card("sk-1", "ex2"), alternatives: [card("ex9-4")], picked: null, status: "ambiguous", included: true };
+  const chosen = withSharedCard(item, "ex9-4");
+  assert.equal(chosen.card?.id, "ex9-4");
+  assert.equal(chosen.status, "matched");
+  assert.equal(withSharedCard(item, "unknown-1").card?.id, "sk-1");
 });

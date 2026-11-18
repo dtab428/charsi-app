@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Board, type DeskItem } from "@/components/board";
+import { Board, type DeskItem, type View } from "@/components/board";
 import { CardPicture } from "@/components/card-picture";
 import { HoldingsProvider } from "@/components/holding-toggles";
 import { Button } from "@/components/ui/button";
@@ -18,11 +18,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { AccountMenu } from "@/components/account-menu";
 import { MarketFilters } from "@/components/market";
-import { COMPANIES, DEFAULT_FILTERS, type Filters } from "@/lib/feed";
+import { COMPANIES, DEFAULT_FILTERS, GRADES, type Filters } from "@/lib/feed";
 import { keptAfterChoice, marketAmount, mergePrintings, printingFamily, resolveActive } from "@/lib/facts";
 import { printingSlug } from "@/lib/printing";
-import { deskShareFrom, deskShareHref, type DeskShare } from "@/lib/share";
-import { applySharedPrinting } from "@/lib/share-pick";
+import { deskShareFrom, deskShareHref, EMPTY_LINE, type DeskShare, type FilterShare, type LineShare } from "@/lib/share";
+import { withSharedCard, withSharedPrinting } from "@/lib/share-pick";
 import { fileSlug, finishOf, money, reverseStamp, variantLabel } from "@/lib/format";
 import { GAMES, SAMPLE_LIST } from "@/lib/games";
 import { cardBands } from "@/lib/photo-bands";
@@ -48,6 +48,48 @@ function validFilters(value: Filters | undefined): Filters {
   return { source, condition, grade };
 }
 
+function filtersFromShare(shared: FilterShare): Filters {
+  const company = COMPANIES.find((entry) => entry === shared.condition?.toUpperCase());
+  return validFilters({
+    source: (shared.source ?? "all") as Filters["source"],
+    condition: company ?? "raw",
+    grade: company && shared.grade ? shared.grade : DEFAULT_FILTERS.grade,
+  });
+}
+
+function viewFromShare(line: LineShare): View | null {
+  if (!line.condition) return null;
+  if (line.condition.toLowerCase() === "raw") return { condition: "raw", grade: DEFAULT_FILTERS.grade };
+  const company = COMPANIES.find((entry) => entry === line.condition?.toUpperCase());
+  if (!company) return null;
+  const grade = line.grade && GRADES[company].includes(line.grade) ? line.grade : GRADES[company][0];
+  return { condition: company, grade };
+}
+
+function shareOfFilters(filters: Filters): Partial<FilterShare> {
+  return {
+    source: filters.source === "all" ? null : filters.source,
+    condition: filters.condition,
+    grade: filters.grade,
+  };
+}
+
+function shareOfLines(items: DeskItem[], slots: number): LineShare[] {
+  const lines: LineShare[] = Array.from({ length: slots }, () => ({ ...EMPTY_LINE, removed: true }));
+  for (const item of items) {
+    if (item.slot < 0 || item.slot >= slots) continue;
+    lines[item.slot] = {
+      removed: false,
+      card: item.card?.id ?? null,
+      printing: item.picked ? printingSlug(item.picked) : null,
+      condition: item.view?.condition ?? null,
+      grade: item.view && item.view.condition !== "raw" ? item.view.grade : null,
+      off: Boolean(item.card) && !item.included,
+    };
+  }
+  return lines;
+}
+
 async function readJson<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
 }
@@ -66,6 +108,7 @@ export function Desk() {
   const [lanes, setLanes] = useState<Record<string, { auctions: ListingLane; buyNow: ListingLane }>>({});
   const [ebayOn, setEbayOn] = useState<boolean | null>(null);
   const [ebaySandbox, setEbaySandbox] = useState(false);
+  const [pulled, setPulled] = useState<{ q: string; slots: number } | null>(null);
   const [pins, setPins] = useState<Record<string, Pin>>({});
   const [zoom, setZoom] = useState<PublicCard | null>(null);
   const [sheeting, setSheeting] = useState(false);
@@ -73,29 +116,25 @@ export function Desk() {
   const [over, setOver] = useState(false);
   const dragDepth = useRef(0);
   const photosRef = useRef<HTMLInputElement>(null);
-  const share = useRef<(DeskShare & { line: string | null }) | null>(null);
-
-  function remember(q: string, card?: string | null, printing?: string | null) {
-    const href = deskShareHref(q, card, printing);
-    if (`${window.location.pathname}${window.location.search}` !== href) window.history.replaceState(null, "", href);
-  }
+  const linked = useRef<DeskShare | null>(null);
+  const restoring = useRef<Map<number, string> | null>(null);
 
   useEffect(() => {
-    const linked = deskShareFrom(window.location.search);
-    share.current = linked ? { ...linked, line: null } : null;
+    const opened = deskShareFrom(window.location.search);
+    linked.current = opened;
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE) ?? "null") as Saved | null;
       if (saved) {
         // Browser storage is read after hydration so the server render stays empty.
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setTitle(saved.title ?? "");
-        setFilters(validFilters(saved.filters));
         setColumns(saved.columns === 2 ? 2 : 1);
       }
-      const opening = linked?.q || saved?.text || "";
+      setFilters(opened ? filtersFromShare(opened.filters) : validFilters(saved?.filters));
+      const opening = opened?.q || saved?.text || "";
       if (opening.trim()) {
         setText(opening);
-        void pull(opening, Boolean(linked));
+        void pull(opening, Boolean(opened));
       }
     } catch {
       localStorage.removeItem(STORAGE);
@@ -105,16 +144,28 @@ export function Desk() {
   }, []);
 
   useEffect(() => {
-    const wanted = share.current;
-    const card = wanted?.card;
-    const printing = wanted?.printing;
-    if (!wanted || !card || !printing) return;
-    setItems((current) => {
-      const applied = applySharedPrinting(current, quotes, { card, printing, line: wanted.line });
-      if (applied.line) wanted.line = applied.line;
-      return applied.items;
+    const waiting = restoring.current;
+    if (!waiting) return;
+    let changed = false;
+    const next = items.map((item) => {
+      const printing = waiting.get(item.slot);
+      if (!printing) return item;
+      const applied = withSharedPrinting(item, printing, quotes);
+      if (!applied.done) return item;
+      waiting.delete(item.slot);
+      if (applied.item !== item) changed = true;
+      return applied.item;
     });
+    for (const slot of [...waiting.keys()]) if (!items.some((item) => item.slot === slot)) waiting.delete(slot);
+    if (waiting.size === 0) restoring.current = null;
+    if (changed) setItems(next);
   }, [quotes, items]);
+
+  useEffect(() => {
+    if (!pulled || restoring.current) return;
+    const href = deskShareHref(pulled.q, shareOfLines(items, pulled.slots), shareOfFilters(filters));
+    if (`${window.location.pathname}${window.location.search}` !== href) window.history.replaceState(null, "", href);
+  }, [pulled, items, filters, quotes]);
 
   useEffect(() => {
     const payload: Saved = { text, title, filters, columns };
@@ -213,7 +264,7 @@ export function Desk() {
           const item = payload.item;
           setItems((current) => {
             if (current.length >= 80) return current;
-            return [...current, { ...item, key: crypto.randomUUID(), included: Boolean(item.card), picked: null }];
+            return [...current, { ...item, key: crypto.randomUUID(), slot: -1, included: Boolean(item.card), picked: null, view: null }];
           });
           if (payload.line) {
             setText((current) => (current.trim() ? `${current.trim()}\n${payload.line}` : payload.line ?? ""));
@@ -249,16 +300,21 @@ export function Desk() {
         setError(payload.error ?? "The catalog didn’t answer.");
         return;
       }
-      const next = payload.items.map((item) => ({ ...item, key: crypto.randomUUID(), included: Boolean(item.card), picked: null }));
-      setItems(next);
-      if (keepShare && share.current?.q === list.trim()) {
-        share.current = { ...share.current, line: null };
-        remember(list, share.current.card, share.current.printing);
-      } else {
-        share.current = { q: list.trim(), card: null, printing: null, line: null };
-        remember(list);
-      }
-      const ids = [...new Set(next.flatMap((item) => (item.card ? printingFamily(item.card, item.alternatives).map((card) => card.id) : [])))];
+      const shared = keepShare && linked.current?.q === list.trim() ? linked.current : null;
+      const waiting = new Map<number, string>();
+      const next: DeskItem[] = payload.items.map((item, slot) => {
+        const base: DeskItem = { ...item, key: crypto.randomUUID(), slot, included: Boolean(item.card), picked: null, view: null };
+        const line = shared?.lines[slot];
+        if (!line) return base;
+        const restored = withSharedCard(base, line.card);
+        if (line.printing) waiting.set(slot, line.printing);
+        return { ...restored, view: viewFromShare(line), included: restored.card ? !line.off : restored.included };
+      });
+      const removed = new Set((shared?.lines ?? []).flatMap((line, slot) => (line.removed ? [slot] : [])));
+      restoring.current = waiting.size ? waiting : null;
+      setItems(next.filter((item) => !removed.has(item.slot)));
+      setPulled({ q: list.trim(), slots: payload.items.length });
+      const ids = [...new Set(next.filter((item) => !removed.has(item.slot)).flatMap((item) => (item.card ? printingFamily(item.card, item.alternatives).map((card) => card.id) : [])))];
       void loadPrices(ids);
       void loadMarket(ids);
     } catch {
@@ -268,9 +324,12 @@ export function Desk() {
     }
   }
 
+  function changeFilters(next: Filters) {
+    setFilters(next);
+    setItems((current) => current.map((item) => (item.view ? { ...item, view: null } : item)));
+  }
+
   function choose(key: string, card: PublicCard) {
-    share.current = { q: (share.current?.q || text).trim(), card: card.id, printing: null, line: key };
-    remember(share.current.q, card.id);
     setItems((current) =>
       current.map((item) =>
         item.key === key
@@ -523,7 +582,7 @@ export function Desk() {
               </div>
             </div>
             <div className="flex flex-wrap items-end justify-between gap-3">
-              <MarketFilters filters={filters} onChange={setFilters} />
+              <MarketFilters filters={filters} onChange={changeFilters} />
               <div className="hidden items-center gap-1.5 lg:flex" role="group" aria-label="Cards per row">
                 <span className="text-[10px] tracking-[0.14em] text-[#b3a694] uppercase">Per row</span>
                 <Button type="button" size="sm" variant={columns === 1 ? "default" : "outline"} aria-pressed={columns === 1} onClick={() => setColumns(1)}>
@@ -546,10 +605,8 @@ export function Desk() {
               onInclude={(key, included) => setItems((current) => current.map((item) => (item.key === key ? { ...item, included } : item)))}
               onRemove={(key) => setItems((current) => current.filter((item) => item.key !== key))}
               onChoose={choose}
+              onView={(key, view) => setItems((current) => current.map((item) => (item.key === key ? { ...item, view } : item)))}
               onPick={(key, cardId, variantKey) => {
-                const printing = printingSlug(variantKey);
-                share.current = { q: (share.current?.q || text).trim(), card: cardId, printing, line: key };
-                remember(share.current.q, cardId, printing);
                 setItems((current) =>
                   current.map((item) => {
                     if (item.key !== key || !item.card) return item;

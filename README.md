@@ -31,6 +31,10 @@ Filters above the cards narrow the feed by source (All, TCGplayer, Cardmarket, e
 
 Finishes follow TCGplayer. A card can be non-holo, holo, and reverse holo at once. A reverse holo only gets a stamp when that printing actually carries one, which in English starts with Team Rocket Returns and runs through Power Keepers. The stamp is the set’s own logo (in `public/stamps`), placed in the lower-right corner of the artwork, on the regular scan of the card, since a reverse keeps the regular artwork and puts the foil around it. Earlier reverses, including Skyridge, have no stamp. Skyridge reverse scans come from the public card image host when one exists; otherwise the holo photo is used, since the e-Reader strip on those reverses matches the holo. Holo, when TCGplayer files it as its own product (often under Deck Exclusives), is loaded beside the other two. Pictures themselves come from the public card CDNs. They are not stored in this repo. If a browser can’t reach the CDN, the app asks our server to fetch that one picture. Search results use the full set name.
 
+## Shareable desk address
+
+The address bar holds the whole desk, so copying it shares exactly what you see: the list text, each line's card and printing (`i=ex9-4_reverse-holo_PSA_9` is card, printing, grader, grade), lines you removed or switched off, and the source, grader and grade filters (`src`, `cond`, `grade`). Opening the address pulls the same list and restores every choice without browser storage.
+
 ## Card pages
 
 Every card, and every printing, has its own page: `/card/<id>` and `/card/<id>/reverse-holo`. Click a card name on the desk to open one. A card page has the card details, the same feed and filters, price charts, and Save a copy. Charts start with the Cardmarket 30-day, 7-day and yesterday averages. Charsi also saves each price it sees once a day (in `.data/history`, not committed), so the TCGplayer and Cardmarket lines fill in as you keep using it. No free source publishes older sales.
