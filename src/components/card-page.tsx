@@ -149,7 +149,7 @@ export function CardPage({ card, printing, siblings = [] }: { card: PublicCard; 
                 <CardPicture src={shownPicture(variants, activeKey, finish, card.small, card.large)} alt={card.name} finish={finish} badge={variants.length > 1} stamp={finish === "reverse" ? reverseStamp(card.setId) : ""} width={480} height={670} priority className="rounded-xl bg-[#2a241e]" />
               </Slab>
             )}
-            {finish === "reverse" && reverseStamp(card.setId) ? <p className="text-center text-[10px] leading-tight text-[#b3a694]">Set symbol placed on the holo photo.</p> : null}
+            {finish === "reverse" && reverseStamp(card.setId) ? <p className="text-center text-[10px] leading-tight text-[#b3a694]">Set logo placed on the holo photo.</p> : null}
             <AddToCollection
               card={card}
               printing={activeKey ? printingSlug(activeKey) : null}

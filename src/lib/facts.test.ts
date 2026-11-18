@@ -4,7 +4,7 @@ import { keptAfterChoice, mergePrintings, resolveActive } from "./facts";
 import { preferPricedVariants } from "./prices";
 import type { PriceQuote, PublicCard } from "./types";
 import { finishOf, reverseStamp, variantLabel, withoutGenericEditions } from "./format";
-import { stampPaths } from "./stamp-art";
+import { stampLogo } from "./stamp-art";
 import type { VariantQuote } from "./types";
 
 function variant(key: string, market: number | null = 10): VariantQuote {
@@ -76,8 +76,8 @@ test("only the stamped EX sets get a set symbol", () => {
   assert.equal(reverseStamp("ex1"), "");
   assert.equal(reverseStamp("ex7"), "ex7");
   assert.equal(reverseStamp("ex16"), "ex16");
-  assert.ok((stampPaths("ex7") ?? []).length > 0);
-  assert.equal(stampPaths("ecard3"), null);
+  assert.equal(stampLogo("ex7"), "/stamps/ex7.png");
+  assert.equal(stampLogo("ecard3"), null);
 });
 
 test("a modern card with three finishes still asks, and a stated reverse does not", () => {

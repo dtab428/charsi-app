@@ -346,7 +346,9 @@ async function assignFinishImages(ids: string[], source: Map<string, PriceQuote 
       const reverse = quote.variants.find((variant) => finishOf(variant.key) === "reverse");
       if (!reverse || reverse.image) return;
       if (reverseStamp(card.set)) {
-        if (holoImage) reverse.image = holoImage;
+        // The reverse keeps the regular artwork; the foil is around it. The
+        // catalog scan is that artwork, and the set logo is drawn on top.
+        reverse.image = card.large || card.small || holoImage || null;
         return;
       }
       if (!card.set.startsWith("ecard")) return;

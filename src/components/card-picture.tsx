@@ -1,28 +1,20 @@
 "use client";
 
 import Image from "next/image";
-import { useId, useState } from "react";
+import { useState } from "react";
 import type { Finish } from "@/lib/format";
-import { stampPaths } from "@/lib/stamp-art";
+import { STAMP_BOX, stampLogo } from "@/lib/stamp-art";
 
 function Stamp({ id }: { id: string }) {
-  const paths = stampPaths(id);
-  const grad = useId();
-  if (!paths) return null;
+  const logo = stampLogo(id);
+  if (!logo) return null;
   return (
-    <span className="pointer-events-none absolute" style={{ left: "63%", top: "30%", width: "16%" }} title="Set symbol placed on the holo photo. Not a scan of the stamped card.">
-      <svg viewBox="0 0 64 64" className="h-auto w-full drop-shadow-[0_1px_1px_rgba(0,0,0,0.75)]" aria-hidden>
-        <defs>
-          <linearGradient id={grad} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#fff6d2" />
-            <stop offset="45%" stopColor="#e0b44a" />
-            <stop offset="100%" stopColor="#8d5d16" />
-          </linearGradient>
-        </defs>
-        {paths.map((d) => (
-          <path key={d} d={d} fill={`url(#${grad})`} fillRule="evenodd" />
-        ))}
-      </svg>
+    <span
+      className="pointer-events-none absolute"
+      style={{ right: `${STAMP_BOX.right}%`, bottom: `${STAMP_BOX.bottom}%`, width: `${STAMP_BOX.width}%`, height: `${STAMP_BOX.height}%` }}
+      title="Set logo placed on the holo photo. Not a scan of the stamped card."
+    >
+      <Image src={logo} alt="" fill unoptimized sizes="25vw" className="object-contain object-right-bottom" />
     </span>
   );
 }

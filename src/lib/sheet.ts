@@ -1,7 +1,7 @@
 import { sheetDate } from "./format";
 import type { Finish } from "./format";
 import { firstCardBlob } from "./pictures";
-import { stampPaths } from "./stamp-art";
+import { STAMP_BOX, stampLogo } from "./stamp-art";
 
 export type SheetCell = {
   srcs: string[];
@@ -12,19 +12,26 @@ export type SheetCell = {
   badge: boolean;
 };
 
-function drawStamp(context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, id: string) {
-  const paths = stampPaths(id);
-  if (!paths) return;
-  const size = width * 0.16;
-  context.save();
-  context.translate(x + width * 0.63, y + height * 0.3);
-  context.scale(size / 64, size / 64);
-  context.shadowColor = "rgba(0,0,0,0.75)";
-  context.shadowBlur = 2;
-  context.shadowOffsetY = 1;
-  context.fillStyle = "#e0b44a";
-  for (const d of paths) context.fill(new Path2D(d), "evenodd");
-  context.restore();
+function drawStamp(context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, logo: ImageBitmap) {
+  const boxWidth = (width * STAMP_BOX.width) / 100;
+  const boxHeight = (height * STAMP_BOX.height) / 100;
+  const scale = Math.min(boxWidth / logo.width, boxHeight / logo.height);
+  const drawWidth = logo.width * scale;
+  const drawHeight = logo.height * scale;
+  const right = x + width * (1 - STAMP_BOX.right / 100);
+  const bottom = y + height * (1 - STAMP_BOX.bottom / 100);
+  context.drawImage(logo, right - drawWidth, bottom - drawHeight, drawWidth, drawHeight);
+}
+
+async function loadLogo(id: string): Promise<ImageBitmap | null> {
+  const src = stampLogo(id);
+  if (!src) return null;
+  try {
+    const response = await fetch(src);
+    return response.ok ? await createImageBitmap(await response.blob()) : null;
+  } catch {
+    return null;
+  }
 }
 
 function drawPill(context: CanvasRenderingContext2D, x: number, y: number, text: string, fill: string, ink: string) {
@@ -99,6 +106,10 @@ export async function renderSheet(cells: SheetCell[], title: string): Promise<Bl
       }
     }),
   );
+  const logos = new Map<string, ImageBitmap | null>();
+  for (const id of new Set(cells.filter((cell) => cell.finish === "reverse" && cell.stamp).map((cell) => cell.stamp))) {
+    logos.set(id, await loadLogo(id));
+  }
 
   cells.forEach((cell, index) => {
     const column = index % columns;
@@ -110,7 +121,8 @@ export async function renderSheet(cells: SheetCell[], title: string): Promise<Bl
     const bitmap = bitmaps[index];
     if (bitmap) {
       context.drawImage(bitmap, x, y, cardWidth, cardHeight);
-      if (cell.finish === "reverse" && cell.stamp) drawStamp(context, x, y, cardWidth, cardHeight, cell.stamp);
+      const logo = cell.finish === "reverse" && cell.stamp ? logos.get(cell.stamp) : null;
+      if (logo) drawStamp(context, x, y, cardWidth, cardHeight, logo);
       if (cell.badge && cell.finish === "reverse") drawPill(context, x, y, "Reverse", "#c6a15b", "#241c14");
       else if (cell.badge && cell.finish === "holo") {
         context.strokeStyle = "#f0d7a4";

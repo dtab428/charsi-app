@@ -49,7 +49,7 @@ function Tile({ entry, value, onQuantity, onRemove }: { entry: Entry; value: num
           {entry.card.setName} · {entry.card.number}
           {entry.printing ? ` · ${printingName(entry.printing)}` : ""}
         </p>
-        {finish === "reverse" && reverseStamp(entry.card.setId) ? <p className="text-[10px] text-[#b3a694]">Set symbol placed on the holo photo.</p> : null}
+        {finish === "reverse" && reverseStamp(entry.card.setId) ? <p className="text-[10px] text-[#b3a694]">Set logo placed on the holo photo.</p> : null}
         <p className="mt-2">
           <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${entry.kind === "graded" ? "bg-[#d4a574]/25 text-[#ecd0ab]" : "bg-white/10 text-[#f3ecdf]"}`}>
             {entry.kind === "graded" ? `${entry.company} ${entry.grade}` : "Raw"}

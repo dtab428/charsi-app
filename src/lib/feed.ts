@@ -124,6 +124,7 @@ export function buildFeed(input: {
   const more: FeedRow[] = [];
   let notice: string | null = null;
   const keep = (source: FeedSource) => allowed(filters.source, source);
+  const averages = filters.source === "cardmarket" ? ended : more;
 
   if (filters.condition === "raw") {
     const variant = quote?.variants.find((entry) => entry.key === variantKey) ?? pickVariant(modifiers, quote?.variants ?? []);
@@ -202,7 +203,7 @@ export function buildFeed(input: {
         ];
         periods.forEach(([value, label], index) => {
           if (value == null) return;
-          ended.push({
+          averages.push({
             id: `cardmarket-${index}`,
             source: "cardmarket",
             label: "Sold average",
@@ -222,7 +223,7 @@ export function buildFeed(input: {
           more.push({ id: "low", source: "cardmarket", label: "Lowest listing", sub: null, value: money(sales.low, "EUR"), when: null, href: cardmarketHref, link: false, at: 0, order: 2 });
         }
       } else {
-        ended.push({
+        averages.push({
           id: "cardmarket-missing",
           source: "cardmarket",
           label: "Cardmarket",
@@ -320,7 +321,7 @@ export function buildFeed(input: {
       ];
       periods.forEach(([value, label, order]) => {
         if (value == null) return;
-        ended.push({
+        averages.push({
           id: `raw-cm-${order}`,
           source: "cardmarket",
           label: "Raw sold average",

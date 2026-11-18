@@ -195,7 +195,7 @@ function CardDesk({
           {shown ? (
             <div>
               <Face card={shown} src={picture} finish={finish} badge={printings.length > 1} slab={view.condition === "raw" ? null : { company: view.condition, grade: view.grade }} onZoom={onZoom} />
-              {finish === "reverse" && reverseStamp(shown.setId) ? <p className="mt-1 text-center text-[10px] leading-tight text-[#b3a694]">Set symbol placed on the holo photo.</p> : null}
+              {finish === "reverse" && reverseStamp(shown.setId) ? <p className="mt-1 text-center text-[10px] leading-tight text-[#b3a694]">Set logo placed on the holo photo.</p> : null}
             </div>
           ) : (
             <div className="flex aspect-[63/88] items-end rounded-md border border-dashed border-white/15 p-2 text-xs text-[#b3a694]">{item.raw}</div>
