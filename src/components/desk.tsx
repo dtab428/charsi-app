@@ -32,7 +32,6 @@ const STORAGE = "charsi.desk.v1";
 type Saved = {
   text?: string;
   title?: string;
-  pins?: Record<string, Pin>;
   filters?: Filters;
   columns?: 1 | 2;
 };
@@ -79,7 +78,6 @@ export function Desk() {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setText(saved.text ?? "");
       setTitle(saved.title ?? "");
-      setPins(saved.pins ?? {});
       setFilters(validFilters(saved.filters));
       setColumns(saved.columns === 2 ? 2 : 1);
       if (saved.text?.trim()) void pull(saved.text);
@@ -91,9 +89,9 @@ export function Desk() {
   }, []);
 
   useEffect(() => {
-    const payload: Saved = { text, title, pins, filters, columns };
+    const payload: Saved = { text, title, filters, columns };
     localStorage.setItem(STORAGE, JSON.stringify(payload));
-  }, [text, title, pins, filters, columns]);
+  }, [text, title, filters, columns]);
 
   async function loadPrices(ids: string[]) {
     if (ids.length === 0) return;
@@ -494,7 +492,7 @@ export function Desk() {
       </main>
 
       <footer className="mx-auto max-w-[1200px] px-4 pt-4 pb-10 text-xs leading-relaxed text-[#b3a694]">
-        Card data and images are © Pokémon, Nintendo, Creatures, and GAME FREAK. Charsi isn’t affiliated with them, or with eBay, TCGplayer, Cardmarket, Goldin, Facebook, or Discord. Prices come from TCGdex (TCGplayer and Cardmarket) unless a Scrydex key is connected. eBay listings load with an eBay application key. Goldin, Facebook Marketplace, and Discord are links and pins, not a scrape.
+        Card data and images are © Pokémon, Nintendo, Creatures, and GAME FREAK. Charsi isn’t affiliated with them, or with eBay, TCGplayer, Cardmarket, Goldin, Facebook, or Discord. Prices come from TCGdex (TCGplayer and Cardmarket) unless a Scrydex key is connected. eBay listings load with an eBay application key. Goldin, Facebook Marketplace, and Discord are links and hand-typed notes, not a scrape.
       </footer>
 
       <Dialog open={zoom != null} onOpenChange={(open) => !open && setZoom(null)}>

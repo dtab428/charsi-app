@@ -179,7 +179,7 @@ function PinEditor({ pin, onPin }: { pin: Pin; onPin: (pin: Pin) => void }) {
         <Input value={pin.note} onChange={(event) => onPin({ ...pin, note: event.target.value.slice(0, 80) })} placeholder="What they said" aria-label="What they said" />
       </div>
       <div className="mt-2 flex items-center justify-between gap-2">
-        <p className="text-[11px] text-[#b3a694]">Kept on this browser. Marketplace and Discord aren’t scanned.</p>
+        <p className="text-[11px] text-[#b3a694]">Typed by hand and cleared on reload. Charsi doesn’t read Marketplace or Discord yet.</p>
         <Button type="button" size="sm" variant="secondary" onClick={() => setOpen(false)}>
           Done
         </Button>
