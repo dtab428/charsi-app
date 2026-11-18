@@ -27,7 +27,7 @@ export function shownPicture(variants: VariantQuote[], activeKey: string | null,
 
 export function keptAfterChoice(previous: PublicCard | null, alternatives: PublicCard[], card: PublicCard): PublicCard[] {
   const name = card.name.toLowerCase();
-  const pool = [previous, ...alternatives].filter((entry): entry is PublicCard => Boolean(entry) && entry.id !== card.id);
+  const pool = [previous, ...alternatives].filter((entry): entry is PublicCard => entry != null && entry.id !== card.id);
   const seen = new Set<string>();
   return pool.filter((entry) => {
     if (seen.has(entry.id) || entry.setId !== card.setId || entry.name.toLowerCase() !== name) return false;
