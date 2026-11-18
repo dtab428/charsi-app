@@ -1,5 +1,5 @@
 import { getCatalog } from "./catalog";
-import { variantLabel } from "./format";
+import { variantLabel, withoutGenericEditions } from "./format";
 import { recordSnapshots } from "./history";
 import type { CardmarketQuote, EuroSales, GradedQuote, PriceQuote, TrendPoint, VariantQuote } from "./types";
 
@@ -98,12 +98,13 @@ function fromPokemon(card: Record<string, unknown>): PriceQuote | null {
         holo: null,
       }
     : null;
-  if (variants.length === 0 && !cardmarket) return null;
+  const printed = withoutGenericEditions(variants);
+  if (printed.length === 0 && !cardmarket) return null;
   return {
     source: "pokemon-tcg",
     updatedAt: text(tcg?.updatedAt),
     productUrl: text(tcg?.url),
-    variants,
+    variants: printed,
     cardmarket,
     graded: [],
     trends: [],
@@ -159,12 +160,13 @@ function fromScrydex(card: Record<string, unknown>): PriceQuote | null {
     if (company !== 0) return company;
     return Number(b.grade) - Number(a.grade);
   });
-  if (variants.length === 0 && graded.length === 0) return null;
+  const printed = withoutGenericEditions(variants);
+  if (printed.length === 0 && graded.length === 0) return null;
   return {
     source: "scrydex",
     updatedAt: null,
     productUrl: null,
-    variants,
+    variants: printed,
     cardmarket: null,
     graded: graded.slice(0, 40),
     trends,
@@ -255,6 +257,39 @@ async function holoSibling(cardId: string): Promise<VariantQuote | null> {
   return null;
 }
 
+function catalogHolo(cardId: string): { id: string; image: string } | null {
+  const catalog = getCatalog();
+  const card = catalog.cards.find((entry) => entry.id === cardId);
+  if (!card || /holo/i.test(card.rarity)) return null;
+  const name = card.name.toLowerCase();
+  const siblings = catalog.cards.filter(
+    (other) => other.id !== card.id && other.set === card.set && other.name.toLowerCase() === name && /holo/i.test(other.rarity) && !/reverse/i.test(other.rarity),
+  );
+  const sibling = siblings.find((other) => /^h/i.test(other.num)) ?? siblings[0];
+  if (!sibling) return null;
+  return { id: sibling.id, image: sibling.large || sibling.small };
+}
+
+async function catalogHoloVariant(cardId: string): Promise<VariantQuote | null> {
+  const sibling = catalogHolo(cardId);
+  if (!sibling) return null;
+  const payload = await fetchJson(`https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(sibling.id)}`);
+  const card = record(payload);
+  const quote = card ? fromTcgdex(card) : null;
+  const priced = quote?.variants.find((variant) => variant.market != null && /holo/i.test(variant.key) && !/reverse/i.test(variant.key)) ?? quote?.variants.find((variant) => variant.market != null) ?? null;
+  return {
+    key: "holofoil",
+    label: variantLabel("holofoil"),
+    market: priced?.market ?? null,
+    low: priced?.low ?? null,
+    mid: priced?.mid ?? null,
+    high: priced?.high ?? null,
+    currency: "USD",
+    productUrl: priced?.productUrl ?? quote?.productUrl ?? null,
+    image: sibling.image,
+  };
+}
+
 async function attachHoloSiblings(ids: string[], source: Map<string, PriceQuote | null>): Promise<void> {
   const needing = ids.filter((id) => {
     const quote = source.get(id);
@@ -266,7 +301,7 @@ async function attachHoloSiblings(ids: string[], source: Map<string, PriceQuote 
         const quote = source.get(id);
         if (!quote) return;
         try {
-          const sibling = await holoSibling(id);
+          const sibling = (await holoSibling(id)) ?? (await catalogHoloVariant(id));
           if (sibling) {
             const index = quote.variants.findIndex((variant) => variant.key === sibling.key);
             if (index >= 0) quote.variants[index] = sibling;
@@ -331,12 +366,13 @@ function fromTcgdex(card: Record<string, unknown>): PriceQuote | null {
         holo: holo && hasSale(holo) ? holo : null,
       }
     : null;
-  if (variants.length === 0 && !cardmarket) return null;
+  const printed = withoutGenericEditions(variants);
+  if (printed.length === 0 && !cardmarket) return null;
   return {
     source: "tcgdex",
     updatedAt: text(tcg?.updated) ?? text(market?.updated),
     productUrl,
-    variants,
+    variants: printed,
     cardmarket,
     graded: [],
     trends: [],

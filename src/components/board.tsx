@@ -9,8 +9,8 @@ import { CardMarket, ConditionControls } from "@/components/market";
 import { PrintingPicker } from "@/components/printing-picker";
 import { Pressable } from "@/components/ui/ripple";
 import { useEffect, useRef, useState } from "react";
-import { resolveActive } from "@/lib/facts";
-import { finishOf } from "@/lib/format";
+import { mergePrintings, printingFamily, resolveActive } from "@/lib/facts";
+import { finishOf, placesStamp } from "@/lib/format";
 import { cardHref, printingSlug } from "@/lib/printing";
 import { COMPANIES, GRADES, type Company, type Filters } from "@/lib/feed";
 import { emptyLane } from "@/lib/links";
@@ -29,7 +29,7 @@ function legal(card: PublicCard): string {
   if (card.standard === "Legal") return "Standard";
   if (card.expanded === "Legal") return "Expanded";
   if (card.standard === "Banned") return "Not Standard";
-  return "Unlimited";
+  return "";
 }
 
 type View = { condition: "raw" | Company; grade: string };
@@ -58,7 +58,7 @@ function Face({
   slab: { company: string; grade: string } | null;
   onZoom: (card: PublicCard) => void;
 }) {
-  const picture = <CardPicture src={src} alt={card.name} finish={finish} stamp={card.setCode || card.setName} width={245} height={342} />;
+  const picture = <CardPicture src={src} alt={card.name} finish={finish} stamp={placesStamp(card.series) ? card.setCode || card.setName : ""} width={245} height={342} />;
   return (
     <Pressable onClick={() => onZoom(card)} className="block w-full rounded-md text-left">
       {slab ? (
@@ -130,9 +130,11 @@ function CardDesk({
   onSave,
   onZoom,
   columns,
+  quotes,
 }: {
   item: DeskItem;
   quote: PriceQuote | null | undefined;
+  quotes: Record<string, PriceQuote | null>;
   loadingQuotes: boolean;
   lanes: { auctions: ListingLane; buyNow: ListingLane } | undefined;
   pin: Pin;
@@ -141,7 +143,7 @@ function CardDesk({
   onInclude: (key: string, included: boolean) => void;
   onRemove: (key: string) => void;
   onChoose: (key: string, card: PublicCard) => void;
-  onPick: (key: string, variantKey: string) => void;
+  onPick: (key: string, cardId: string, variantKey: string) => void;
   onCopy: (card: PublicCard) => void;
   onSave: (card: PublicCard) => void;
   onZoom: (card: PublicCard) => void;
@@ -149,7 +151,15 @@ function CardDesk({
 }) {
   const card = item.card;
   const pickedKey = item.picked;
-  const setPickedKey = (next: string) => onPick(item.key, next);
+  const family = card ? printingFamily(card, item.alternatives) : [];
+  const outside = item.alternatives.filter((alt) => !family.some((member) => member.id === alt.id));
+  const printings = mergePrintings(
+    family.map((member) => ({
+      cardId: member.id,
+      variants: quotes[member.id]?.variants ?? [],
+    })),
+  );
+  const loaded = family.length > 0 && family.every((member) => quotes[member.id] !== undefined);
   const [own, setOwn] = useState<View | null>(null);
   const [useTyped, setUseTyped] = useState(true);
   const seen = useRef(`${filters.condition}-${filters.grade}`);
@@ -162,25 +172,27 @@ function CardDesk({
   }, [filters.condition, filters.grade]);
   const view = own ?? (useTyped ? typedView(item.grading) : null) ?? { condition: filters.condition, grade: filters.grade };
   const cardFilters: Filters = { ...filters, condition: view.condition, grade: view.grade };
-  const active = resolveActive({ finish: item.finish, modifiers: item.modifiers, variants: quote?.variants ?? [], pickedKey, loaded: quote !== undefined });
+  const active = resolveActive({ finish: item.finish, modifiers: item.modifiers, variants: printings, pickedKey, loaded });
   const activeKey = active.key;
-  const waiting = !item.finish && quote === undefined && loadingQuotes;
+  const shown = family.find((member) => member.id === (active.cardId ?? card?.id)) ?? card;
+  const shownQuote = shown ? quotes[shown.id] : quote;
+  const waiting = !pickedKey && family.some((member) => quotes[member.id] === undefined);
   const hold = active.needsPick || waiting;
   const dim = hold ? "pointer-events-none opacity-30 transition-opacity select-none" : "transition-opacity";
   const printing = activeKey ? printingSlug(activeKey) : null;
   const finish = finishOf(activeKey);
-  const picture = (card && quote && quote.variants.find((entry) => entry.key === activeKey)?.image) || card?.small || card?.large || "";
-  const auctions = card ? lanes?.auctions ?? emptyLane(card, "auction") : null;
-  const buyNow = card ? lanes?.buyNow ?? emptyLane(card, "bin") : null;
+  const picture = (shown && shownQuote?.variants.find((entry) => entry.key === activeKey)?.image) || shown?.small || shown?.large || "";
+  const auctions = shown ? lanes?.auctions ?? emptyLane(shown, "auction") : null;
+  const buyNow = shown ? lanes?.buyNow ?? emptyLane(shown, "bin") : null;
 
   return (
     <li className="rounded-[24px] border border-white/10 bg-[#1c1814]/80 p-3 sm:p-5">
       <div className="flex gap-3 sm:gap-5">
         <div inert={hold} className={`${dim} ${columns === 2 ? "w-24 shrink-0 self-start sm:w-32" : "w-24 shrink-0 self-start sm:w-40 lg:w-48"}`}>
-          {card ? (
+          {shown ? (
             <div>
-              <Face card={card} src={picture} finish={finish} slab={view.condition === "raw" ? null : { company: view.condition, grade: view.grade }} onZoom={onZoom} />
-              {finish === "reverse" ? <p className="mt-1 text-center text-[10px] leading-tight text-[#b3a694]">Placed stamp. Not a photo of the stamped card.</p> : null}
+              <Face card={shown} src={picture} finish={finish} slab={view.condition === "raw" ? null : { company: view.condition, grade: view.grade }} onZoom={onZoom} />
+              {finish === "reverse" && placesStamp(shown.series) ? <p className="mt-1 text-center text-[10px] leading-tight text-[#b3a694]">Placed stamp. Not a photo of the stamped card.</p> : null}
             </div>
           ) : (
             <div className="flex aspect-[63/88] items-end rounded-md border border-dashed border-white/15 p-2 text-xs text-[#b3a694]">{item.raw}</div>
@@ -190,18 +202,18 @@ function CardDesk({
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <h3 className="min-w-0 font-serif text-2xl leading-none tracking-tight sm:text-3xl">
-                {card ? (
-                  <a href={cardHref(card.id, printing)} className="hover:underline">
-                    {card.name}
+                {shown ? (
+                  <a href={cardHref(shown.id, printing)} className="hover:underline">
+                    {shown.name}
                   </a>
                 ) : (
                   item.raw
                 )}
               </h3>
               {item.quantity > 1 ? <span className="text-sm text-[#d4a574]">×{item.quantity}</span> : null}
-              {card ? <span className="ml-auto"><HoldingToggles cardId={card.id} printing={printing} condition={view.condition} grade={view.grade} /></span> : null}
+              {shown ? <span className="ml-auto"><HoldingToggles cardId={shown.id} printing={printing} condition={view.condition} grade={view.grade} /></span> : null}
             </div>
-            {card ? <p className="mt-1 text-xs text-[#b3a694]">{printed(card)} · {card.rarity}</p> : null}
+            {shown ? <p className="mt-1 text-xs text-[#b3a694]">{printed(shown)} · {shown.rarity}</p> : null}
           </div>
           <p className="mt-1 text-xs text-[#d4a574]/90">Heard “{item.raw}”</p>
           {item.corrections.map((correction) => (
@@ -210,21 +222,21 @@ function CardDesk({
           {item.notes.map((note) => (
             <p key={note} className="mt-1 text-xs leading-snug text-[#b3a694]">{note}</p>
           ))}
-          {item.status === "ambiguous" ? <p className="mt-2 text-xs text-[#f3ecdf]">A few printings sit this close. Pick one.</p> : null}
+          {item.status === "ambiguous" && outside.length > 0 ? <p className="mt-2 text-xs text-[#f3ecdf]">A few cards match. Pick the one you meant.</p> : null}
           {item.status === "unmatched" ? <p className="mt-2 text-xs text-[#f3ecdf]">Nothing sat close enough.</p> : null}
-          {item.alternatives.length > 0 ? (
+          {outside.length > 0 ? (
             <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
-              {item.alternatives.map((alt) => (
+              {outside.map((alt) => (
                 <Pressable key={alt.id} onClick={() => onChoose(item.key, alt)} className="w-24 shrink-0 rounded-sm text-left">
                   <CardPicture src={alt.small} alt="" finish={null} width={56} height={78} className="rounded-sm bg-[#2a241e]" />
-                  <span className="mt-1 block text-[10px] leading-tight text-[#b3a694]">{alt.setName}</span>
+                  <span className="mt-1 block text-[10px] leading-tight text-[#b3a694]">{alt.setName} · {alt.printedTotal ? `${alt.number}/${alt.printedTotal}` : alt.number}</span>
                 </Pressable>
               ))}
             </div>
           ) : null}
-          {card ? (
-            <p className="mt-2 text-xs leading-relaxed text-[#b3a694]">
-              {[card.supertype, card.subtypes.filter((sub) => sub !== card.supertype).join(" "), card.hp ? `${card.hp} HP` : "", card.types.join(" / "), legal(card), card.regulation ? `Reg ${card.regulation}` : "", card.artist]
+          {shown ? (
+            <p inert={hold} className={`mt-2 text-xs leading-relaxed text-[#b3a694] ${dim}`}>
+              {[shown.supertype, shown.subtypes.filter((sub) => sub !== shown.supertype).join(" "), shown.hp ? `${shown.hp} HP` : "", shown.types.join(" / "), legal(shown), shown.regulation ? `Reg ${shown.regulation}` : "", shown.artist]
                 .filter(Boolean)
                 .join(" · ")}
             </p>
@@ -235,21 +247,35 @@ function CardDesk({
               <p className="mt-1 text-xs leading-relaxed text-[#d8c9ab]">Checking which printings this card comes in. The price depends on it.</p>
             </div>
           ) : null}
-          {card && quote ? (
+          {card && printings.length > 0 && !waiting ? (
             <div className="mt-4">
-              <PrintingPicker variants={quote.variants} activeKey={activeKey} needsPick={active.needsPick} missing={active.missing} onPick={setPickedKey} />
+              <PrintingPicker
+                variants={printings}
+                activeKey={activeKey}
+                activeCardId={shown?.id ?? null}
+                needsPick={active.needsPick}
+                missing={active.missing}
+                stamped={placesStamp(card.series)}
+                captionFor={(entry) => {
+                  if (family.length < 2) return "";
+                  const owner = family.find((member) => member.id === entry.cardId);
+                  if (!owner) return "";
+                  return owner.printedTotal ? `${owner.number}/${owner.printedTotal}` : owner.number;
+                }}
+                onPick={(cardId, variantKey) => onPick(item.key, cardId, variantKey)}
+              />
             </div>
           ) : null}
-          {card && !hold ? (
+          {shown && !hold ? (
             <div>
               <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-white/10 bg-black/20 p-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-8">
                 <ConditionControls label="This card" condition={view.condition} grade={view.grade} onChange={(condition, grade) => setOwn({ condition, grade })} />
               </div>
               {auctions && buyNow ? (
                 <CardMarket
-                  card={card}
+                  card={shown}
                   modifiers={item.modifiers}
-                  quote={quote}
+                  quote={shownQuote ?? null}
                   loading={loadingQuotes}
                   auctions={auctions}
                   buyNow={buyNow}
@@ -297,7 +323,7 @@ export function Board({
   onInclude: (key: string, included: boolean) => void;
   onRemove: (key: string) => void;
   onChoose: (key: string, card: PublicCard) => void;
-  onPick: (key: string, variantKey: string) => void;
+  onPick: (key: string, cardId: string, variantKey: string) => void;
   onCopy: (card: PublicCard) => void;
   onSave: (card: PublicCard) => void;
   onZoom: (card: PublicCard) => void;
@@ -312,6 +338,7 @@ export function Board({
             key={item.key}
             item={item}
             quote={card ? quotes[card.id] : undefined}
+            quotes={quotes}
             loadingQuotes={loadingQuotes}
             lanes={card ? lanes[card.id] : undefined}
             pin={card ? pins[card.id] ?? emptyPin : emptyPin}

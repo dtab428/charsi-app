@@ -97,6 +97,14 @@ test("a bare stamp is read as reverse and says so", () => {
   assert.equal(item.stampRead, true);
 });
 
+test("keeps both Fossil Dragonites when the edition and finish are unstated", () => {
+  const item = one("dragonite fossil");
+  assert.equal(item.card?.setId, "base3");
+  const ids = [item.card?.id, ...item.alternatives.map((alt) => alt.id)].sort();
+  assert.deepEqual(ids, ["base3-19", "base3-4"]);
+  assert.equal(item.finish, null);
+});
+
 test("leaves the printing open when it is not stated", () => {
   const item = one("Dragonite TRR");
   assert.equal(item.finish, null);

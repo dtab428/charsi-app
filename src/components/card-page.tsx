@@ -10,9 +10,9 @@ import { AddToCollection } from "@/components/add-to-collection";
 import { CardMarket, MarketFilters } from "@/components/market";
 import { PriceChart, type ChartPoint } from "@/components/price-chart";
 import { PrintingPicker } from "@/components/printing-picker";
-import { resolveActive, saleAverages } from "@/lib/facts";
+import { mergePrintings, resolveActive, saleAverages } from "@/lib/facts";
 import { DEFAULT_FILTERS, type Filters } from "@/lib/feed";
-import { finishOf, finishRank, quoteDate, variantLabel } from "@/lib/format";
+import { finishOf, placesStamp, quoteDate, variantLabel } from "@/lib/format";
 import { emptyLane } from "@/lib/links";
 import { cardHref, findPrinting, printingSlug } from "@/lib/printing";
 import type { Snapshot } from "@/lib/history";
@@ -35,8 +35,9 @@ function facts(card: PublicCard): [string, string][] {
   return rows;
 }
 
-export function CardPage({ card, printing }: { card: PublicCard; printing: string | null }) {
+export function CardPage({ card, printing, siblings = [] }: { card: PublicCard; printing: string | null; siblings?: PublicCard[] }) {
   const [quote, setQuote] = useState<PriceQuote | null | undefined>(undefined);
+  const [siblingQuotes, setSiblingQuotes] = useState<Record<string, PriceQuote | null>>({});
   const [loading, setLoading] = useState(true);
   const [lanes, setLanes] = useState<{ auctions: ListingLane; buyNow: ListingLane } | null>(null);
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
@@ -46,15 +47,25 @@ export function CardPage({ card, printing }: { card: PublicCard; printing: strin
   useEffect(() => {
     let live = true;
     const post = (url: string) =>
-      fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ids: [card.id] }) });
+      fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ids: [card.id, ...siblings.map((sibling) => sibling.id)] }) });
 
     (async () => {
       try {
         const response = await post("/api/prices");
         const payload = (await response.json()) as { quotes?: Record<string, PriceQuote | null> };
-        if (live) setQuote(response.ok ? payload.quotes?.[card.id] ?? null : null);
+        if (live) {
+          setQuote(response.ok ? payload.quotes?.[card.id] ?? null : null);
+          const rest: Record<string, PriceQuote | null> = {};
+          for (const sibling of siblings) rest[sibling.id] = response.ok ? payload.quotes?.[sibling.id] ?? null : null;
+          setSiblingQuotes(rest);
+        }
       } catch {
-        if (live) setQuote(null);
+        if (live) {
+          setQuote(null);
+          const rest: Record<string, PriceQuote | null> = {};
+          for (const sibling of siblings) rest[sibling.id] = null;
+          setSiblingQuotes(rest);
+        }
       } finally {
         if (live) setLoading(false);
       }
@@ -78,15 +89,26 @@ export function CardPage({ card, printing }: { card: PublicCard; printing: strin
     return () => {
       live = false;
     };
-  }, [card.id]);
+  }, [card.id, siblings]);
 
-  const variants = [...(quote?.variants ?? [])].sort((a, b) => finishRank(a.key) - finishRank(b.key));
-  const fromLink = findPrinting(variants, printing);
-  const active = resolveActive({ finish: null, modifiers: [], variants, pickedKey: fromLink?.key ?? null, loaded: Boolean(quote) });
+  const own = quote?.variants ?? [];
+  const variants = mergePrintings([
+    { cardId: card.id, variants: own },
+    ...siblings.map((sibling) => ({ cardId: sibling.id, variants: siblingQuotes[sibling.id]?.variants ?? [] })),
+  ]);
+  const fromLink = findPrinting(own, printing);
+  const familyLoaded = siblings.every((sibling) => siblingQuotes[sibling.id] !== undefined);
+  const active = resolveActive({
+    finish: null,
+    modifiers: [],
+    variants,
+    pickedKey: fromLink?.key ?? null,
+    loaded: quote !== undefined && (Boolean(fromLink) || familyLoaded),
+  });
   const activeKey = active.key;
   const selected = variants.find((entry) => entry.key === activeKey) ?? null;
   const finish = finishOf(activeKey) ?? finishOf(printing);
-  const waiting = !printing && quote === undefined;
+  const waiting = quote === undefined || (!fromLink && !familyLoaded);
   const hold = active.needsPick || waiting;
   const dim = hold ? "pointer-events-none opacity-30 transition-opacity select-none" : "transition-opacity";
   const auctions = lanes?.auctions ?? emptyLane(card, "auction");
@@ -120,13 +142,13 @@ export function CardPage({ card, printing }: { card: PublicCard; printing: strin
         <div className="grid gap-6 lg:grid-cols-[minmax(0,19rem)_minmax(0,1fr)]">
           <aside inert={hold} className={`flex flex-col gap-4 ${dim}`}>
             {filters.condition === "raw" ? (
-              <CardPicture src={selected?.image || card.large || card.small} alt={card.name} finish={finish} stamp={card.setCode || card.setName} width={480} height={670} priority className="rounded-xl bg-[#2a241e]" />
+              <CardPicture src={selected?.image || card.large || card.small} alt={card.name} finish={finish} stamp={placesStamp(card.series) ? card.setCode || card.setName : ""} width={480} height={670} priority className="rounded-xl bg-[#2a241e]" />
             ) : (
               <Slab company={filters.condition} grade={filters.grade}>
-                <CardPicture src={selected?.image || card.large || card.small} alt={card.name} finish={finish} stamp={card.setCode || card.setName} width={480} height={670} priority className="rounded-xl bg-[#2a241e]" />
+                <CardPicture src={selected?.image || card.large || card.small} alt={card.name} finish={finish} stamp={placesStamp(card.series) ? card.setCode || card.setName : ""} width={480} height={670} priority className="rounded-xl bg-[#2a241e]" />
               </Slab>
             )}
-            {finish === "reverse" ? <p className="text-center text-[10px] leading-tight text-[#b3a694]">Placed stamp. Not a photo of the stamped card.</p> : null}
+            {finish === "reverse" && placesStamp(card.series) ? <p className="text-center text-[10px] leading-tight text-[#b3a694]">Placed stamp. Not a photo of the stamped card.</p> : null}
             <AddToCollection
               card={card}
               printing={activeKey ? printingSlug(activeKey) : null}
@@ -165,7 +187,20 @@ export function CardPage({ card, printing }: { card: PublicCard; printing: strin
               </div>
             ) : null}
             {variants.length > 1 ? (
-              <PrintingPicker variants={variants} activeKey={activeKey} needsPick={active.needsPick} missing={null} hrefFor={(key) => cardHref(card.id, printingSlug(key))} />
+              <PrintingPicker
+                variants={variants}
+                activeKey={activeKey}
+                activeCardId={card.id}
+                needsPick={active.needsPick}
+                missing={null}
+                stamped={placesStamp(card.series)}
+                captionFor={(entry) => {
+                  if (siblings.length === 0) return "";
+                  const owner = entry.cardId === card.id ? card : siblings.find((sibling) => sibling.id === entry.cardId);
+                  return owner ? (owner.printedTotal ? `${owner.number}/${owner.printedTotal}` : owner.number) : "";
+                }}
+                hrefFor={(entry) => cardHref(entry.cardId || card.id, printingSlug(entry.key))}
+              />
             ) : null}
 
             <div className={`${hold ? "hidden" : "flex"} flex-col gap-5`}>

@@ -19,8 +19,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { AccountMenu } from "@/components/account-menu";
 import { MarketFilters } from "@/components/market";
 import { COMPANIES, DEFAULT_FILTERS, type Filters } from "@/lib/feed";
-import { marketAmount, resolveActive } from "@/lib/facts";
-import { fileSlug, finishOf, money } from "@/lib/format";
+import { marketAmount, mergePrintings, printingFamily, resolveActive } from "@/lib/facts";
+import { fileSlug, finishOf, money, placesStamp, variantLabel } from "@/lib/format";
 import { GAMES, SAMPLE_LIST } from "@/lib/games";
 import { cardBands } from "@/lib/photo-bands";
 import { copyBlob, downloadBlob, firstCardBlob } from "@/lib/pictures";
@@ -192,8 +192,9 @@ export function Desk() {
             setText((current) => (current.trim() ? `${current.trim()}\n${payload.line}` : payload.line ?? ""));
           }
           if (item.card) {
-            void loadPrices([item.card.id]);
-            void loadMarket([item.card.id]);
+            const ids = printingFamily(item.card, item.alternatives).map((card) => card.id);
+            void loadPrices(ids);
+            void loadMarket(ids);
           }
         }
       } catch {
@@ -223,7 +224,7 @@ export function Desk() {
       }
       const next = payload.items.map((item) => ({ ...item, key: crypto.randomUUID(), included: Boolean(item.card), picked: null }));
       setItems(next);
-      const ids = [...new Set(next.flatMap((item) => (item.card ? [item.card.id] : [])))];
+      const ids = [...new Set(next.flatMap((item) => (item.card ? printingFamily(item.card, item.alternatives).map((card) => card.id) : [])))];
       void loadPrices(ids);
       void loadMarket(ids);
     } catch {
@@ -272,18 +273,20 @@ export function Desk() {
       .flatMap((item) => {
         const card = item.card as PublicCard;
         const quote = quotes[card.id];
-        const variants = quote?.variants ?? [];
-        const active = resolveActive({ finish: item.finish, modifiers: item.modifiers, variants, pickedKey: item.picked, loaded: quote !== undefined });
+        const family = printingFamily(card, item.alternatives);
+        const variants = mergePrintings(family.map((member) => ({ cardId: member.id, variants: (member.id === card.id ? quote : quotes[member.id])?.variants ?? [] })));
+        const active = resolveActive({ finish: item.finish, modifiers: item.modifiers, variants, pickedKey: item.picked, loaded: family.every((member) => quotes[member.id] !== undefined) });
+        const owner = family.find((member) => member.id === (active.cardId ?? card.id)) ?? card;
         const printing = variants.find((entry) => entry.key === active.key) ?? null;
         const finish = finishOf(active.key);
         const copies = Math.min(item.quantity, 8);
         const grade = item.grading ? `${item.grading.company}${item.grading.grade ? ` ${item.grading.grade}` : ""}` : "";
         return Array.from({ length: copies }, () => ({
-          srcs: [printing?.image ?? "", card.large, card.small],
-          name: card.name,
-          line: [`${card.setCode || card.setName} · ${card.printedTotal ? `${card.number}/${card.printedTotal}` : card.number}`, printing ? printing.label : "", grade].filter(Boolean).join(" · "),
+          srcs: [printing?.image ?? "", owner.large, owner.small],
+          name: owner.name,
+          line: [`${owner.setCode || owner.setName} · ${owner.printedTotal ? `${owner.number}/${owner.printedTotal}` : owner.number}`, printing ? variantLabel(printing.key) : "", grade].filter(Boolean).join(" · "),
           finish,
-          stamp: card.setCode || card.setName,
+          stamp: placesStamp(owner.series) ? owner.setCode || owner.setName : "",
         }));
       })
       .slice(0, 36);
@@ -317,10 +320,10 @@ export function Desk() {
   const onSheet = items.filter((item) => item.included && item.card).length;
   const worth = items.reduce((sum, item) => {
     if (!item.card) return sum;
-    const amount = marketAmount(item.modifiers, quotes[item.card.id], item.finish);
+    const amount = marketAmount(item.modifiers, quotes[item.card.id], item.finish, item.picked);
     return amount == null ? sum : sum + amount * item.quantity;
   }, 0);
-  const priced = items.filter((item) => item.card && marketAmount(item.modifiers, quotes[item.card.id], item.finish) != null).length;
+  const priced = items.filter((item) => item.card && marketAmount(item.modifiers, quotes[item.card.id], item.finish, item.picked) != null).length;
   const listWorth = priced > 0 ? money(worth, "USD") : "";
   const skeletons = Math.min(8, Math.max(3, text.split(/\n|,/).filter((line) => line.trim()).length));
 
@@ -502,7 +505,24 @@ export function Desk() {
               onInclude={(key, included) => setItems((current) => current.map((item) => (item.key === key ? { ...item, included } : item)))}
               onRemove={(key) => setItems((current) => current.filter((item) => item.key !== key))}
               onChoose={choose}
-              onPick={(key, picked) => setItems((current) => current.map((item) => (item.key === key ? { ...item, picked } : item)))}
+              onPick={(key, cardId, variantKey) =>
+                setItems((current) =>
+                  current.map((item) => {
+                    if (item.key !== key || !item.card) return item;
+                    const family = printingFamily(item.card, item.alternatives);
+                    const next = family.find((card) => card.id === cardId) ?? item.card;
+                    const outside = item.alternatives.filter((alt) => !family.some((member) => member.id === alt.id));
+                    return {
+                      ...item,
+                      card: next,
+                      alternatives: [...family.filter((member) => member.id !== next.id), ...outside],
+                      picked: variantKey,
+                      status: outside.length === 0 ? "matched" : item.status,
+                      included: true,
+                    };
+                  }),
+                )
+              }
               onCopy={(card) => void copyCard(card)}
               onSave={(card) => void saveCard(card)}
               onZoom={setZoom}

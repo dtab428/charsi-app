@@ -85,11 +85,16 @@ function listingsFrom(payload: unknown): Listing[] {
     const title = typeof item.title === "string" ? item.title.slice(0, 140) : "";
     if (!url || !title) continue;
     const price = item.price && typeof item.price === "object" ? (item.price as { value?: unknown; currency?: unknown }) : null;
+    const thumb = item.thumbnailImages && Array.isArray(item.thumbnailImages) ? (item.thumbnailImages[0] as { imageUrl?: unknown } | undefined) : undefined;
+    const picture = item.image && typeof item.image === "object" ? (item.image as { imageUrl?: unknown }).imageUrl : thumb?.imageUrl;
+    const image = typeof picture === "string" && /^https:\/\/i\.ebayimg\.com\//.test(picture) ? picture : null;
+    if (/\b(lot|bundle|collection|bulk)\b/i.test(title)) continue;
     const shipping = Array.isArray(item.shippingOptions) ? (item.shippingOptions[0] as { shippingCost?: { value?: unknown } } | undefined) : undefined;
     const shipValue = numberOrNull(shipping?.shippingCost?.value);
     listings.push({
       title,
       url,
+      image,
       price: numberOrNull(price?.value),
       currency: typeof price?.currency === "string" ? price.currency : "USD",
       bids: numberOrNull(item.bidCount),
@@ -98,7 +103,7 @@ function listingsFrom(payload: unknown): Listing[] {
       shipping: shipValue == null ? null : shipValue === 0 ? "Free shipping" : `+${shipValue.toFixed(2)} shipping`,
       condition: typeof item.condition === "string" ? item.condition : null,
     });
-    if (listings.length === 5) break;
+    if (listings.length === 8) break;
   }
   return listings;
 }
@@ -112,9 +117,10 @@ async function search(card: PublicCard, kind: "auction" | "bin"): Promise<Listin
     return lane(card, kind, "error", [], "eBay didn’t accept the application key.");
   }
   const url = new URL(`${ebayApi()}/buy/browse/v1/item_summary/search`);
-  url.searchParams.set("q", `Pokemon ${card.name} ${card.setName} ${card.number}`.replace(/\s+/g, " "));
+  const number = card.printedTotal ? `${card.number}/${card.printedTotal}` : card.number;
+  url.searchParams.set("q", `Pokemon ${card.name} ${number}`.replace(/\s+/g, " "));
   url.searchParams.set("category_ids", "183454");
-  url.searchParams.set("limit", "6");
+  url.searchParams.set("limit", "10");
   url.searchParams.set("filter", `buyingOptions:{${kind === "auction" ? "AUCTION" : "FIXED_PRICE"}}`);
   url.searchParams.set("sort", kind === "auction" ? "endingSoonest" : "newlyListed");
   try {

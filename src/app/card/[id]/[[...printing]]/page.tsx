@@ -12,6 +12,16 @@ function lookup(id: string) {
   return card ? toPublic(catalog, card) : null;
 }
 
+function siblingsOf(cardId: string) {
+  const catalog = getCatalog();
+  const card = catalog.cards.find((entry) => entry.id === cardId);
+  if (!card) return [];
+  const name = card.name.toLowerCase();
+  return catalog.cards
+    .filter((entry) => entry.id !== card.id && entry.set === card.set && entry.name.toLowerCase() === name)
+    .map((entry) => toPublic(catalog, entry));
+}
+
 function slugOf(printing: string[] | undefined): string | null {
   const slug = printing?.[0];
   return slug && /^[a-z0-9-]{1,40}$/.test(slug) && printing?.length === 1 ? slug : null;
@@ -32,5 +42,5 @@ export default async function Page({ params }: { params: Params }) {
   const { id, printing } = await params;
   const card = lookup(id);
   if (!card || (printing && printing.length > 1)) notFound();
-  return <CardPage card={card} printing={slugOf(printing)} />;
+  return <CardPage card={card} printing={slugOf(printing)} siblings={siblingsOf(card.id)} />;
 }

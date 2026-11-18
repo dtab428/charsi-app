@@ -1,12 +1,39 @@
-import { finishOf, type Finish } from "./format";
-import type { EuroSales, PriceQuote, VariantQuote } from "./types";
+import { editionOf, finishOf, withoutGenericEditions, type Edition, type Finish } from "./format";
+import type { EuroSales, PriceQuote, PublicCard, VariantQuote } from "./types";
 
 export function pickFinish(finish: Finish, variants: VariantQuote[]): VariantQuote | null {
   const hits = variants.filter((variant) => finishOf(variant.key) === finish);
   return hits.find((variant) => variant.market != null) ?? hits[0] ?? null;
 }
 
-export type ActiveVariant = { key: string | null; needsPick: boolean; missing: Finish | null };
+export type ActiveVariant = { key: string | null; cardId: string | null; needsPick: boolean; missing: Finish | null };
+
+function askedEdition(modifiers: string[]): Edition | null {
+  if (modifiers.includes("shadowless")) return "shadowless";
+  if (modifiers.includes("first")) return "first";
+  if (modifiers.includes("unlimited")) return "unlimited";
+  return null;
+}
+
+export function printingFamily(card: PublicCard, alternatives: PublicCard[]): PublicCard[] {
+  const name = card.name.toLowerCase();
+  const rest = alternatives.filter((alt) => alt.setId === card.setId && alt.name.toLowerCase() === name && alt.id !== card.id);
+  return [card, ...rest];
+}
+
+export function mergePrintings(groups: { cardId: string; variants: VariantQuote[] }[]): VariantQuote[] {
+  const seen = new Set<string>();
+  const merged: VariantQuote[] = [];
+  for (const group of groups) {
+    for (const variant of group.variants) {
+      const identity = `${editionOf(variant.key) ?? "-"}:${finishOf(variant.key) ?? variant.key}`;
+      if (seen.has(identity)) continue;
+      seen.add(identity);
+      merged.push({ ...variant, cardId: group.cardId });
+    }
+  }
+  return withoutGenericEditions(merged);
+}
 
 export function resolveActive(input: {
   finish: Finish | null;
@@ -16,16 +43,30 @@ export function resolveActive(input: {
   loaded: boolean;
 }): ActiveVariant {
   const { finish, modifiers, variants, pickedKey, loaded } = input;
-  if (pickedKey && variants.some((variant) => variant.key === pickedKey)) return { key: pickedKey, needsPick: false, missing: null };
-  let missing: Finish | null = null;
-  if (finish) {
-    const hit = pickFinish(finish, variants);
-    if (hit) return { key: hit.key, needsPick: false, missing: null };
-    if (loaded && variants.length > 0) missing = finish;
+  const picked = pickedKey ? variants.find((variant) => variant.key === pickedKey) : undefined;
+  if (picked) return { key: picked.key, cardId: picked.cardId ?? null, needsPick: false, missing: null };
+  if (!loaded) return { key: null, cardId: null, needsPick: false, missing: null };
+
+  const edition = askedEdition(modifiers);
+  const editionKnown = edition != null && variants.some((variant) => editionOf(variant.key) === edition);
+  const candidates = variants.filter((variant) => {
+    const printed = finishOf(variant.key);
+    if (finish && printed !== finish) return false;
+    if (editionKnown && editionOf(variant.key) !== edition) return false;
+    if (modifiers.includes("reverse") && printed !== "reverse") return false;
+    if (modifiers.includes("nonholo") && printed !== "normal") return false;
+    if (modifiers.includes("holo") && !modifiers.includes("reverse") && printed !== "holo") return false;
+    return true;
+  });
+
+  if (candidates.length === 1) {
+    const only = candidates[0] as VariantQuote;
+    return { key: only.key, cardId: only.cardId ?? null, needsPick: false, missing: null };
   }
-  const finishes = new Set(variants.map((variant) => finishOf(variant.key)).filter(Boolean));
-  const needsPick = loaded && !finish && finishes.size >= 2;
-  return { key: needsPick ? null : pickVariant(modifiers, variants)?.key ?? null, needsPick, missing };
+  if (candidates.length > 1) return { key: null, cardId: null, needsPick: true, missing: null };
+  if (variants.length > 1) return { key: null, cardId: null, needsPick: true, missing: finish };
+  const fallback = variants[0];
+  return { key: fallback?.key ?? null, cardId: fallback?.cardId ?? null, needsPick: false, missing: finish && variants.length > 0 ? finish : null };
 }
 
 export function pickVariant(modifiers: string[], variants: VariantQuote[]): VariantQuote | null {
@@ -63,8 +104,9 @@ export function saleAverages(quote: PriceQuote | null | undefined, variant: Vari
   return { ...picked, currency: "EUR" };
 }
 
-export function marketAmount(modifiers: string[], quote: PriceQuote | null | undefined, finish?: Finish | null): number | null {
+export function marketAmount(modifiers: string[], quote: PriceQuote | null | undefined, finish?: Finish | null, pickedKey?: string | null): number | null {
   const variants = quote?.variants ?? [];
-  const variant = (finish ? pickFinish(finish, variants) : null) ?? pickVariant(modifiers, variants);
-  return variant?.market ?? null;
+  const active = resolveActive({ finish: finish ?? null, modifiers, variants, pickedKey: pickedKey ?? null, loaded: true });
+  if (active.needsPick || !active.key) return null;
+  return variants.find((variant) => variant.key === active.key)?.market ?? null;
 }

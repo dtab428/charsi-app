@@ -30,6 +30,7 @@ export type FeedRow = {
   sub: string | null;
   value: string;
   when: string | null;
+  image?: string | null;
   href: string | null;
   link: boolean;
   at: number;
@@ -76,6 +77,7 @@ function listingRow(listing: Listing, kind: "auction" | "bin", index: number): F
     label: listing.title,
     sub: parts.filter(Boolean).join(" · ") || null,
     value: money(listing.price, listing.currency),
+    image: listing.image,
     when: kind === "auction" ? endsLabel(listing.endsAt) : listedLabel(listing.listedAt),
     href: affiliateUrl(listing.url),
     link: false,

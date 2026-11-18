@@ -128,7 +128,7 @@ export async function renderSheet(cells: SheetCell[], title: string): Promise<Bl
     if (bitmap) {
       context.drawImage(bitmap, x, y, cardWidth, cardHeight);
       if (cell.finish === "reverse") {
-        drawStamp(context, x, y, cardWidth, cardHeight, cell.stamp);
+        if (cell.stamp) drawStamp(context, x, y, cardWidth, cardHeight, cell.stamp);
         drawPill(context, x, y, "Reverse", "#c6a15b", "#241c14");
       } else if (cell.finish === "holo") {
         context.strokeStyle = "#f0d7a4";

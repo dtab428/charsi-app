@@ -82,6 +82,7 @@ export type VariantQuote = {
   currency: string;
   productUrl?: string | null;
   image?: string | null;
+  cardId?: string;
 };
 
 export type TrendPoint = {
@@ -127,6 +128,7 @@ export type PriceQuote = {
 export type Listing = {
   title: string;
   url: string;
+  image: string | null;
   price: number | null;
   currency: string;
   bids: number | null;

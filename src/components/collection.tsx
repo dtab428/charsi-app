@@ -10,7 +10,7 @@ import { Pressable } from "@/components/ui/ripple";
 import { Skeleton } from "@/components/ui/skeleton";
 import { findPrinting, cardHref, printingName } from "@/lib/printing";
 import { pickVariant } from "@/lib/facts";
-import { finishOf, money } from "@/lib/format";
+import { finishOf, money, placesStamp } from "@/lib/format";
 import type { PriceQuote, PublicCard } from "@/lib/types";
 
 type Entry = {
@@ -29,7 +29,7 @@ type Tab = "all" | "raw" | "graded";
 
 function Tile({ entry, value, onQuantity, onRemove }: { entry: Entry; value: number | null; onQuantity: (entry: Entry, quantity: number) => void; onRemove: (entry: Entry) => void }) {
   const finish = finishOf(entry.printing);
-  const picture = <CardPicture src={entry.card.small} alt={entry.card.name} finish={finish} stamp={entry.card.setCode || entry.card.setName} width={245} height={342} />;
+  const picture = <CardPicture src={entry.card.small} alt={entry.card.name} finish={finish} stamp={placesStamp(entry.card.series) ? entry.card.setCode || entry.card.setName : ""} width={245} height={342} />;
   return (
     <li className="flex gap-3 rounded-2xl border border-white/10 bg-[#1c1814]/80 p-3">
       <Pressable sameTab href={cardHref(entry.cardId, entry.printing)} className={`block shrink-0 self-start rounded-md ${entry.kind === "graded" ? "w-28 sm:w-32" : "w-20 sm:w-24"}`}>
@@ -49,7 +49,7 @@ function Tile({ entry, value, onQuantity, onRemove }: { entry: Entry; value: num
           {entry.card.setName} · {entry.card.number}
           {entry.printing ? ` · ${printingName(entry.printing)}` : ""}
         </p>
-        {finish === "reverse" ? <p className="text-[10px] text-[#b3a694]">Placed stamp, not a photo of the stamped card.</p> : null}
+        {finish === "reverse" && placesStamp(entry.card.series) ? <p className="text-[10px] text-[#b3a694]">Placed stamp, not a photo of the stamped card.</p> : null}
         <p className="mt-2">
           <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${entry.kind === "graded" ? "bg-[#d4a574]/25 text-[#ecd0ab]" : "bg-white/10 text-[#f3ecdf]"}`}>
             {entry.kind === "graded" ? `${entry.company} ${entry.grade}` : "Raw"}
