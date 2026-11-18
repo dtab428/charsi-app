@@ -1,6 +1,7 @@
 import { sheetDate } from "./format";
 import type { Finish } from "./format";
 import { firstCardBlob } from "./pictures";
+import { stampPaths } from "./stamp-art";
 
 export type SheetCell = {
   srcs: string[];
@@ -8,39 +9,21 @@ export type SheetCell = {
   line: string;
   finish: Finish | null;
   stamp: string;
+  badge: boolean;
 };
 
-function drawStamp(context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, label: string) {
-  const size = width * 0.22;
-  const left = x + width * 0.66;
-  const top = y + height * 0.32;
-  const center = size / 2;
+function drawStamp(context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, id: string) {
+  const paths = stampPaths(id);
+  if (!paths) return;
+  const size = width * 0.16;
   context.save();
-  context.translate(left, top);
-  context.shadowColor = "rgba(0,0,0,0.65)";
+  context.translate(x + width * 0.63, y + height * 0.3);
+  context.scale(size / 64, size / 64);
+  context.shadowColor = "rgba(0,0,0,0.75)";
   context.shadowBlur = 2;
   context.shadowOffsetY = 1;
-  context.fillStyle = "#c6a15b";
-  context.beginPath();
-  context.arc(center, center, size * 0.47, 0, Math.PI * 2);
-  context.fill();
-  context.shadowColor = "transparent";
-  context.lineWidth = Math.max(1, size * 0.023);
-  context.strokeStyle = "#5c4316";
-  context.beginPath();
-  context.arc(center, center, size * 0.375, 0, Math.PI * 2);
-  context.stroke();
-  context.strokeStyle = "#f3e2b0";
-  context.lineWidth = Math.max(0.8, size * 0.016);
-  context.beginPath();
-  context.arc(center, center, size * 0.42, 0, Math.PI * 2);
-  context.stroke();
-  const text = (label || "R").slice(0, 4).toUpperCase();
-  context.fillStyle = "#3a2a0c";
-  context.font = `700 ${size * (text.length > 3 ? 0.14 : 0.17)}px sans-serif`;
-  context.textAlign = "center";
-  context.textBaseline = "middle";
-  context.fillText(text, center, center);
+  context.fillStyle = "#e0b44a";
+  for (const d of paths) context.fill(new Path2D(d), "evenodd");
   context.restore();
 }
 
@@ -127,15 +110,14 @@ export async function renderSheet(cells: SheetCell[], title: string): Promise<Bl
     const bitmap = bitmaps[index];
     if (bitmap) {
       context.drawImage(bitmap, x, y, cardWidth, cardHeight);
-      if (cell.finish === "reverse") {
-        if (cell.stamp) drawStamp(context, x, y, cardWidth, cardHeight, cell.stamp);
-        drawPill(context, x, y, "Reverse", "#c6a15b", "#241c14");
-      } else if (cell.finish === "holo") {
+      if (cell.finish === "reverse" && cell.stamp) drawStamp(context, x, y, cardWidth, cardHeight, cell.stamp);
+      if (cell.badge && cell.finish === "reverse") drawPill(context, x, y, "Reverse", "#c6a15b", "#241c14");
+      else if (cell.badge && cell.finish === "holo") {
         context.strokeStyle = "#f0d7a4";
         context.lineWidth = 2;
         context.strokeRect(x + 1, y + 1, cardWidth - 2, cardHeight - 2);
         drawPill(context, x, y, "Holo", "#f0d7a4", "#241c14");
-      } else if (cell.finish === "normal") {
+      } else if (cell.badge && cell.finish === "normal") {
         drawPill(context, x, y, "Non-holo", "rgba(20,17,14,0.85)", "#f3ecdf");
       }
     } else {

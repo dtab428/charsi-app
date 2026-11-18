@@ -29,7 +29,7 @@ The feed beside each card mixes every source into one list, newest first:
 
 Filters above the cards narrow the feed by source (All, TCGplayer, Cardmarket, eBay) and by condition (Raw, PSA, BGS, CGC, TAG, SGC, with a grade). Choosing a company draws that company’s slab around the card picture, with the grade on the label. The free feeds carry no graded prices, so the graded view opens eBay for that company and grade. Scrydex graded prices appear there when a Scrydex key is connected. On a wide screen, Per row switches the desk between one card and two.
 
-Finishes follow TCGplayer. A card can be non-holo, holo, and reverse holo at once. Reverse holo is the stamped printing and almost never has its own scan, so that page keeps the shared picture and places a small seal on the usual stamp spot (lower right of the artwork). The line under the picture says it is placed, not a photograph of the stamped card. Full arts and some trainers put the art somewhere else, so the seal can sit in the wrong place on those. Holo, when TCGplayer files it as its own product (often under Deck Exclusives), is loaded beside the other two. Pictures themselves come from the public card CDNs (images.pokemontcg.io, and TCGplayer’s image host for a holo product). They are not stored in this repo. If a browser can’t reach the CDN, the app asks our server to fetch that one picture. Search results use the full set name.
+Finishes follow TCGplayer. A card can be non-holo, holo, and reverse holo at once. A reverse holo only gets a set-symbol stamp when that printing actually carries one, which in English starts with Team Rocket Returns and runs through Power Keepers. That stamp is the set’s own symbol, drawn on the holo photo, because the reverse of those cards is the holo picture plus the stamp. Earlier reverses, including Skyridge, have no stamp. Skyridge reverse scans come from the public card image host when one exists; otherwise the holo photo is used, since the e-Reader strip on those reverses matches the holo. Holo, when TCGplayer files it as its own product (often under Deck Exclusives), is loaded beside the other two. Pictures themselves come from the public card CDNs. They are not stored in this repo. If a browser can’t reach the CDN, the app asks our server to fetch that one picture. Search results use the full set name.
 
 ## Card pages
 
@@ -43,9 +43,11 @@ Sign in with Discord (free):
 
 1. Create an application at https://discord.com/developers/applications.
 2. Under OAuth2, add the redirect `http://localhost:4177/api/auth/discord/callback`.
-3. Put the client ID and secret in `.env.local` as `DISCORD_CLIENT_ID` and `DISCORD_CLIENT_SECRET`, plus a long random `SESSION_SECRET`.
+3. Put the client ID and secret in `.env.local` as `DISCORD_CLIENT_ID` and `DISCORD_CLIENT_SECRET`, plus a long random `SESSION_SECRET`. Do not paste those values into chat.
 
-Saving to My Collection or My Wishlist needs a Discord sign-in, locally and in production. `.env.local` is not in git, so every machine and every host (Vercel included) needs the three values set in its own environment. On a host with a read-only disk, such as Vercel, saved lists need a database before they persist.
+On Vercel the same three names have to be added again under Project → Settings → Environment Variables, for Production, then the project redeployed. `.env.local` is not uploaded with the code. In the Discord application, OAuth2 → Redirects also needs `https://<your-vercel-domain>/api/auth/discord/callback` next to the localhost one. Use a new `SESSION_SECRET` on Vercel, not the development file’s value.
+
+Saving to My Collection or My Wishlist needs a Discord sign-in, locally and in production. On a host with a read-only disk, such as Vercel, saved lists need a database before they persist.
 
 ## Run it
 

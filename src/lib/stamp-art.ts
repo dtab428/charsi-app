@@ -1,0 +1,40 @@
+// Set symbols for the EX reverses that actually carry one, from Team Rocket
+// Returns through Power Keepers. Drawn as paths so the stamp is the symbol,
+// not the set code. Skyridge and the earlier EX sets are absent on purpose.
+export const STAMP_PATHS: Record<string, string[]> = {
+  ex7: [
+    "M32 2 L56 14 V34 C56 48 32 60 32 60 C32 60 8 48 8 34 V14 Z M32 8 L50 17 V33 C50 44 32 54 32 54 C32 54 14 44 14 33 V17 Z",
+    "M22 18 H35 C41 18 45 21.6 45 27 C45 31.6 42 34.6 37 35.6 L45 46 H38 L31 36.2 H27 V46 H22 Z M27 22.2 V32 H34 C37.2 32 40 30.2 40 27 C40 23.8 37.4 22.2 34.2 22.2 Z",
+  ],
+  ex8: [
+    "M8 30 L22 24 L18 40 L30 34 L24 52 L34 36 L48 44 L40 28 L58 22 L40 20 L46 6 L32 18 L22 8 L24 22 Z",
+    "M34 14 L58 8 L50 28 L62 24 L46 40 L40 26 Z",
+  ],
+  ex9: [
+    "M8 24 L18 14 H46 L56 24 L46 50 H18 Z M18 24 L24 20 H40 L46 24 L40 44 H24 Z M24 28 H40 L32 40 Z",
+  ],
+  ex10: [
+    "M10 16 C18 8 30 10 34 20 C28 18 18 20 14 28 Z M14 22 H28 M14 27 H26 M16 32 H24 M20 8 L40 14 L58 20 L54 28 L36 24 L22 34 L30 40 L18 36 L8 48 L16 34 L28 30 L34 38 L22 48 L34 42 L48 48 L40 36 L56 40 L60 32 L42 30 L48 22 L34 26 Z",
+  ],
+  ex11: [
+    "M10 16 Q32 2 54 16 Q32 26 10 16 Z M28 24 H36 L40 46 H46 L48 58 H42 L38 46 H26 L22 58 H16 L18 46 H24 Z M8 40 H16 L18 58 H12 Z M48 40 H56 L52 58 H46 Z",
+  ],
+  ex12: [
+    "M32 4 L42 28 H36 V34 H28 V28 H22 Z M14 26 L24 46 H18 V54 H10 V46 H4 Z M50 26 L60 46 H54 V54 H46 V46 H40 Z",
+  ],
+  ex13: [
+    "M32 4 L40 16 H24 Z M32 24 A10 10 0 1 0 32 44 A10 10 0 1 0 32 24 Z M14 40 L24 56 H4 Z M50 40 L60 56 H40 Z",
+  ],
+  ex14: ["M14 54 L46 6 L54 12 L22 60 Z"],
+  ex15: [
+    "M4 36 C12 28 16 20 22 22 C26 12 32 8 36 16 C42 8 50 12 54 22 C60 20 64 28 60 36 C50 32 40 34 32 30 C22 34 12 32 4 36 Z M6 44 C14 40 20 46 28 42 C36 46 42 40 50 44 C56 40 60 44 58 48 C48 44 40 50 32 46 C22 50 14 44 6 48 Z M14 54 C22 50 26 56 32 52 C40 56 46 50 54 54 C50 58 40 56 32 58 C22 56 16 58 14 54 Z",
+  ],
+  ex16: [
+    "M32 4 A28 28 0 1 0 32 60 A28 28 0 1 0 32 4 Z M32 14 L36 26 H48 L38 34 L42 46 L32 38 L22 46 L26 34 L16 26 H28 Z",
+  ],
+};
+
+export function stampPaths(id: string | null | undefined): string[] | null {
+  if (!id) return null;
+  return STAMP_PATHS[id] ?? null;
+}

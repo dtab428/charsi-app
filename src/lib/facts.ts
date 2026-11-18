@@ -15,6 +15,16 @@ function askedEdition(modifiers: string[]): Edition | null {
   return null;
 }
 
+export function shownPicture(variants: VariantQuote[], activeKey: string | null, finish: Finish | null, small: string, large: string): string {
+  const current = activeKey ? variants.find((variant) => variant.key === activeKey) : undefined;
+  if (current?.image) return current.image;
+  if (finish === "reverse") {
+    const holo = variants.find((variant) => finishOf(variant.key) === "holo" && variant.image);
+    if (holo?.image) return holo.image;
+  }
+  return small || large;
+}
+
 export function printingFamily(card: PublicCard, alternatives: PublicCard[]): PublicCard[] {
   const name = card.name.toLowerCase();
   const rest = alternatives.filter((alt) => alt.setId === card.setId && alt.name.toLowerCase() === name && alt.id !== card.id);

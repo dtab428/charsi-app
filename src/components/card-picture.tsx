@@ -1,33 +1,44 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useId, useState } from "react";
 import type { Finish } from "@/lib/format";
+import { stampPaths } from "@/lib/stamp-art";
 
-function Stamp({ label }: { label: string }) {
-  const text = (label || "R").slice(0, 4).toUpperCase();
+function Stamp({ id }: { id: string }) {
+  const paths = stampPaths(id);
+  const grad = useId();
+  if (!paths) return null;
   return (
-    <span className="pointer-events-none absolute" style={{ left: "66%", top: "32%", width: "22%" }} title="Placed set stamp. Not a photo of the stamped card.">
-      <svg viewBox="0 0 64 64" className="h-auto w-full drop-shadow-[0_1px_1px_rgba(0,0,0,0.65)]" aria-hidden>
-        <circle cx="32" cy="32" r="30" fill="#c6a15b" />
-        <circle cx="32" cy="32" r="24" fill="none" stroke="#5c4316" strokeWidth="1.5" />
-        <circle cx="32" cy="32" r="27" fill="none" stroke="#f3e2b0" strokeWidth="1" />
-        <text x="32" y="36" textAnchor="middle" fontSize={text.length > 3 ? "9" : "11"} fontFamily="sans-serif" fontWeight="700" fill="#3a2a0c">
-          {text}
-        </text>
+    <span className="pointer-events-none absolute" style={{ left: "63%", top: "30%", width: "16%" }} title="Set symbol placed on the holo photo. Not a scan of the stamped card.">
+      <svg viewBox="0 0 64 64" className="h-auto w-full drop-shadow-[0_1px_1px_rgba(0,0,0,0.75)]" aria-hidden>
+        <defs>
+          <linearGradient id={grad} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#fff6d2" />
+            <stop offset="45%" stopColor="#e0b44a" />
+            <stop offset="100%" stopColor="#8d5d16" />
+          </linearGradient>
+        </defs>
+        {paths.map((d) => (
+          <path key={d} d={d} fill={`url(#${grad})`} fillRule="evenodd" />
+        ))}
       </svg>
     </span>
   );
 }
 
-function Mark({ finish, stamp }: { finish: Finish | null; stamp: string }) {
-  if (finish === "reverse") {
+function Mark({ finish, stamp, badge }: { finish: Finish | null; stamp: string; badge: boolean }) {
+  if (finish === "reverse" && stamp) {
     return (
       <>
-        <Stamp label={stamp} />
-        <span className="pointer-events-none absolute top-1.5 left-1.5 rounded-full bg-[#c6a15b] px-2 py-0.5 text-[10px] font-medium tracking-[0.12em] text-[#241c14] uppercase">Reverse</span>
+        <Stamp id={stamp} />
+        {badge ? <span className="pointer-events-none absolute top-1.5 left-1.5 rounded-full bg-[#c6a15b] px-2 py-0.5 text-[10px] font-medium tracking-[0.12em] text-[#241c14] uppercase">Reverse</span> : null}
       </>
     );
+  }
+  if (!badge) return null;
+  if (finish === "reverse") {
+    return <span className="pointer-events-none absolute top-1.5 left-1.5 rounded-full bg-[#c6a15b] px-2 py-0.5 text-[10px] font-medium tracking-[0.12em] text-[#241c14] uppercase">Reverse</span>;
   }
   if (finish === "holo") {
     return (
@@ -48,6 +59,7 @@ export function CardPicture({
   alt,
   finish,
   stamp = "",
+  badge = false,
   width,
   height,
   priority,
@@ -58,6 +70,7 @@ export function CardPicture({
   alt: string;
   finish: Finish | null;
   stamp?: string;
+  badge?: boolean;
   width: number;
   height: number;
   priority?: boolean;
@@ -88,7 +101,7 @@ export function CardPicture({
           if (step + 1 < chain.length) setAttempt({ for: src, step: step + 1 });
         }}
       />
-      <Mark finish={finish} stamp={stamp} />
+      <Mark finish={finish} stamp={stamp} badge={badge} />
     </span>
   );
 }

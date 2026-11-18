@@ -9,8 +9,8 @@ import { CardMarket, ConditionControls } from "@/components/market";
 import { PrintingPicker } from "@/components/printing-picker";
 import { Pressable } from "@/components/ui/ripple";
 import { useEffect, useRef, useState } from "react";
-import { mergePrintings, printingFamily, resolveActive } from "@/lib/facts";
-import { finishOf, placesStamp } from "@/lib/format";
+import { mergePrintings, printingFamily, resolveActive, shownPicture } from "@/lib/facts";
+import { finishOf, reverseStamp } from "@/lib/format";
 import { cardHref, printingSlug } from "@/lib/printing";
 import { COMPANIES, GRADES, type Company, type Filters } from "@/lib/feed";
 import { emptyLane } from "@/lib/links";
@@ -49,16 +49,18 @@ function Face({
   card,
   src,
   finish,
+  badge,
   slab,
   onZoom,
 }: {
   card: PublicCard;
   src: string;
   finish: ReturnType<typeof finishOf>;
+  badge: boolean;
   slab: { company: string; grade: string } | null;
   onZoom: (card: PublicCard) => void;
 }) {
-  const picture = <CardPicture src={src} alt={card.name} finish={finish} stamp={placesStamp(card.series) ? card.setCode || card.setName : ""} width={245} height={342} />;
+  const picture = <CardPicture src={src} alt={card.name} finish={finish} badge={badge} stamp={finish === "reverse" ? reverseStamp(card.setId) : ""} width={245} height={342} />;
   return (
     <Pressable onClick={() => onZoom(card)} className="block w-full rounded-md text-left">
       {slab ? (
@@ -181,7 +183,7 @@ function CardDesk({
   const dim = hold ? "pointer-events-none opacity-30 transition-opacity select-none" : "transition-opacity";
   const printing = activeKey ? printingSlug(activeKey) : null;
   const finish = finishOf(activeKey);
-  const picture = (shown && shownQuote?.variants.find((entry) => entry.key === activeKey)?.image) || shown?.small || shown?.large || "";
+  const picture = shown ? shownPicture(shownQuote?.variants ?? printings, activeKey, finish, shown.small, shown.large) : "";
   const auctions = shown ? lanes?.auctions ?? emptyLane(shown, "auction") : null;
   const buyNow = shown ? lanes?.buyNow ?? emptyLane(shown, "bin") : null;
 
@@ -191,8 +193,8 @@ function CardDesk({
         <div inert={hold} className={`${dim} ${columns === 2 ? "w-24 shrink-0 self-start sm:w-32" : "w-24 shrink-0 self-start sm:w-40 lg:w-48"}`}>
           {shown ? (
             <div>
-              <Face card={shown} src={picture} finish={finish} slab={view.condition === "raw" ? null : { company: view.condition, grade: view.grade }} onZoom={onZoom} />
-              {finish === "reverse" && placesStamp(shown.series) ? <p className="mt-1 text-center text-[10px] leading-tight text-[#b3a694]">Placed stamp. Not a photo of the stamped card.</p> : null}
+              <Face card={shown} src={picture} finish={finish} badge={printings.length > 1} slab={view.condition === "raw" ? null : { company: view.condition, grade: view.grade }} onZoom={onZoom} />
+              {finish === "reverse" && reverseStamp(shown.setId) ? <p className="mt-1 text-center text-[10px] leading-tight text-[#b3a694]">Set symbol placed on the holo photo.</p> : null}
             </div>
           ) : (
             <div className="flex aspect-[63/88] items-end rounded-md border border-dashed border-white/15 p-2 text-xs text-[#b3a694]">{item.raw}</div>
@@ -241,12 +243,7 @@ function CardDesk({
                 .join(" · ")}
             </p>
           ) : null}
-          {waiting ? (
-            <div className="mt-4 rounded-2xl border-2 border-[#f0d7a4] bg-[#2a2216] p-4" aria-busy="true">
-              <p className="font-serif text-xl italic text-[#f3ecdf]">Which printing do you mean?</p>
-              <p className="mt-1 text-xs leading-relaxed text-[#d8c9ab]">Checking which printings this card comes in. The price depends on it.</p>
-            </div>
-          ) : null}
+          {waiting ? <p className="mt-4 text-xs text-[#b3a694]">Checking which printings this card comes in.</p> : null}
           {card && printings.length > 0 && !waiting ? (
             <div className="mt-4">
               <PrintingPicker
@@ -255,7 +252,7 @@ function CardDesk({
                 activeCardId={shown?.id ?? null}
                 needsPick={active.needsPick}
                 missing={active.missing}
-                stamped={placesStamp(card.series)}
+                stamped={Boolean(reverseStamp(card.setId))}
                 captionFor={(entry) => {
                   if (family.length < 2) return "";
                   const owner = family.find((member) => member.id === entry.cardId);

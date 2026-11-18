@@ -20,7 +20,7 @@ import { AccountMenu } from "@/components/account-menu";
 import { MarketFilters } from "@/components/market";
 import { COMPANIES, DEFAULT_FILTERS, type Filters } from "@/lib/feed";
 import { marketAmount, mergePrintings, printingFamily, resolveActive } from "@/lib/facts";
-import { fileSlug, finishOf, money, placesStamp, variantLabel } from "@/lib/format";
+import { fileSlug, finishOf, money, reverseStamp, variantLabel } from "@/lib/format";
 import { GAMES, SAMPLE_LIST } from "@/lib/games";
 import { cardBands } from "@/lib/photo-bands";
 import { copyBlob, downloadBlob, firstCardBlob } from "@/lib/pictures";
@@ -284,9 +284,10 @@ export function Desk() {
         return Array.from({ length: copies }, () => ({
           srcs: [printing?.image ?? "", owner.large, owner.small],
           name: owner.name,
-          line: [`${owner.setCode || owner.setName} · ${owner.printedTotal ? `${owner.number}/${owner.printedTotal}` : owner.number}`, printing ? variantLabel(printing.key) : "", grade].filter(Boolean).join(" · "),
+          line: [`${owner.setCode || owner.setName} · ${owner.printedTotal ? `${owner.number}/${owner.printedTotal}` : owner.number}`, variants.length > 1 && printing ? variantLabel(printing.key) : "", grade].filter(Boolean).join(" · "),
           finish,
-          stamp: placesStamp(owner.series) ? owner.setCode || owner.setName : "",
+          stamp: finish === "reverse" ? reverseStamp(owner.setId) : "",
+          badge: variants.length > 1,
         }));
       })
       .slice(0, 36);

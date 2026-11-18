@@ -24,8 +24,10 @@ export function finishRank(key: string): number {
 export type Finish = "normal" | "holo" | "reverse";
 export type Edition = "first" | "shadowless" | "unlimited";
 
-export function placesStamp(series: string): boolean {
-  return series === "EX";
+const STAMPED_SETS = new Set(["ex7", "ex8", "ex9", "ex10", "ex11", "ex12", "ex13", "ex14", "ex15", "ex16"]);
+
+export function reverseStamp(setId: string | null | undefined): string {
+  return setId && STAMPED_SETS.has(setId) ? setId : "";
 }
 
 export function editionOf(key: string | null | undefined): Edition | null {

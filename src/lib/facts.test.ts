@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { mergePrintings, resolveActive } from "./facts";
-import { finishOf, variantLabel, withoutGenericEditions } from "./format";
+import { preferPricedVariants } from "./prices";
+import type { PriceQuote } from "./types";
+import { finishOf, reverseStamp, variantLabel, withoutGenericEditions } from "./format";
+import { stampPaths } from "./stamp-art";
 import type { VariantQuote } from "./types";
 
 function variant(key: string, market: number | null = 10): VariantQuote {
@@ -46,6 +49,25 @@ test("fossil dragonite asks before it shows a price", () => {
   const nonHolo = resolveActive({ finish: "normal", modifiers: ["first", "nonholo"], variants: merged, pickedKey: null, loaded: true });
   assert.equal(nonHolo.key, "1stEdition");
   assert.equal(nonHolo.cardId, "base3-19");
+});
+
+test("an unpriced non-holo gives way to a priced holo", () => {
+  const blank = { source: "tcgdex", updatedAt: null, productUrl: null, variants: [variant("normal", null)], cardmarket: null, graded: [], trends: [] } satisfies PriceQuote;
+  const priced = { source: "pokemon-tcg", updatedAt: null, productUrl: "https://www.tcgplayer.com/product/1", variants: [variant("holofoil", 250)], cardmarket: null, graded: [], trends: [] } satisfies PriceQuote;
+  const kept = preferPricedVariants(blank, priced);
+  assert.equal(kept?.variants[0]?.key, "holofoil");
+  assert.equal(kept?.variants.length, 1);
+  const already = preferPricedVariants(priced, blank);
+  assert.equal(already?.variants[0]?.key, "holofoil");
+});
+
+test("only the stamped EX sets get a set symbol", () => {
+  assert.equal(reverseStamp("ecard3"), "");
+  assert.equal(reverseStamp("ex1"), "");
+  assert.equal(reverseStamp("ex7"), "ex7");
+  assert.equal(reverseStamp("ex16"), "ex16");
+  assert.ok((stampPaths("ex7") ?? []).length > 0);
+  assert.equal(stampPaths("ecard3"), null);
 });
 
 test("a modern card with three finishes still asks, and a stated reverse does not", () => {

@@ -14,11 +14,19 @@ export function finishTerm(variantKey: string | null | undefined): string {
   return "";
 }
 
+const EBAY_GRADER: Record<string, string> = {
+  PSA: "Professional Sports Authenticator (PSA)",
+  BGS: "Beckett Grading Services (BGS)",
+  CGC: "Certified Guaranty Company (CGC)",
+  SGC: "Sportscard Guaranty Corporation (SGC)",
+  TAG: "Technical Authentication & Grading (TAG)",
+};
+
 export function ebaySearchUrl(card: PublicCard, lane: "auction" | "bin" | "sold", grading?: Grading | null, finish?: string): string {
   const url = new URL("https://www.ebay.com/sch/183454/i.html");
-  const parts = [searchPhrase(card), finish ?? "", grading ? `${grading.company} ${grading.grade}` : ""];
-  const phrase = parts.filter(Boolean).join(" ");
-  url.searchParams.set("_nkw", phrase);
+  const parts = [searchPhrase(card), finish ?? ""];
+  url.searchParams.set("_nkw", parts.filter(Boolean).join(" "));
+  url.searchParams.set("_sacat", "183454");
   if (lane === "auction") {
     url.searchParams.set("LH_Auction", "1");
     url.searchParams.set("_sop", "1");
@@ -32,7 +40,25 @@ export function ebaySearchUrl(card: PublicCard, lane: "auction" | "bin" | "sold"
     url.searchParams.set("LH_Complete", "1");
     url.searchParams.set("_sop", "13");
   }
-  return affiliateUrl(url.toString());
+  const grader = grading ? EBAY_GRADER[grading.company] : undefined;
+  if (grading && grader) {
+    url.searchParams.set("rt", "nc");
+    url.searchParams.set("Graded", "Yes");
+    url.searchParams.set("Grade", grading.grade);
+  }
+  // eBay emits the grader aspect double-encoded (Professional%2520Grader=…).
+  // A normal query parameter is ignored, so the graded filter never turns on
+  // and raw cards stay in the results. Append it after the other params.
+  const aspect = grader ? `&${ebayAspect("Professional Grader", grader)}` : "";
+  return affiliateUrl(`${url.toString()}${aspect}`);
+}
+
+function ebayForm(value: string): string {
+  return encodeURIComponent(value).replace(/[!'()*]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
+}
+
+function ebayAspect(name: string, value: string): string {
+  return `${ebayForm(ebayForm(name))}=${ebayForm(ebayForm(value))}`;
 }
 
 export function tcgplayerSearchUrl(card: PublicCard): string {
@@ -135,7 +161,7 @@ export function allowedImageUrl(value: string): boolean {
   }
   if (url.protocol !== "https:") return false;
   if (url.username || url.password) return false;
-  const images = new Set(["images.pokemontcg.io", "images.scrydex.com", "tcgplayer-cdn.tcgplayer.com", "assets.tcgdex.net"]);
+  const images = new Set(["images.pokemontcg.io", "images.scrydex.com", "tcgplayer-cdn.tcgplayer.com", "assets.tcgdex.net", "card-images.fetchtcg.com"]);
   if (!images.has(url.hostname)) return false;
   if (url.pathname.includes("..") || url.pathname.includes("\\")) return false;
   return true;

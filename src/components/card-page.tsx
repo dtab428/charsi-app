@@ -10,9 +10,9 @@ import { AddToCollection } from "@/components/add-to-collection";
 import { CardMarket, MarketFilters } from "@/components/market";
 import { PriceChart, type ChartPoint } from "@/components/price-chart";
 import { PrintingPicker } from "@/components/printing-picker";
-import { mergePrintings, resolveActive, saleAverages } from "@/lib/facts";
+import { mergePrintings, resolveActive, saleAverages, shownPicture } from "@/lib/facts";
 import { DEFAULT_FILTERS, type Filters } from "@/lib/feed";
-import { finishOf, placesStamp, quoteDate, variantLabel } from "@/lib/format";
+import { finishOf, reverseStamp, quoteDate, variantLabel } from "@/lib/format";
 import { emptyLane } from "@/lib/links";
 import { cardHref, findPrinting, printingSlug } from "@/lib/printing";
 import type { Snapshot } from "@/lib/history";
@@ -142,13 +142,13 @@ export function CardPage({ card, printing, siblings = [] }: { card: PublicCard; 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,19rem)_minmax(0,1fr)]">
           <aside inert={hold} className={`flex flex-col gap-4 ${dim}`}>
             {filters.condition === "raw" ? (
-              <CardPicture src={selected?.image || card.large || card.small} alt={card.name} finish={finish} stamp={placesStamp(card.series) ? card.setCode || card.setName : ""} width={480} height={670} priority className="rounded-xl bg-[#2a241e]" />
+              <CardPicture src={shownPicture(variants, activeKey, finish, card.small, card.large)} alt={card.name} finish={finish} badge={variants.length > 1} stamp={finish === "reverse" ? reverseStamp(card.setId) : ""} width={480} height={670} priority className="rounded-xl bg-[#2a241e]" />
             ) : (
               <Slab company={filters.condition} grade={filters.grade}>
-                <CardPicture src={selected?.image || card.large || card.small} alt={card.name} finish={finish} stamp={placesStamp(card.series) ? card.setCode || card.setName : ""} width={480} height={670} priority className="rounded-xl bg-[#2a241e]" />
+                <CardPicture src={shownPicture(variants, activeKey, finish, card.small, card.large)} alt={card.name} finish={finish} badge={variants.length > 1} stamp={finish === "reverse" ? reverseStamp(card.setId) : ""} width={480} height={670} priority className="rounded-xl bg-[#2a241e]" />
               </Slab>
             )}
-            {finish === "reverse" && placesStamp(card.series) ? <p className="text-center text-[10px] leading-tight text-[#b3a694]">Placed stamp. Not a photo of the stamped card.</p> : null}
+            {finish === "reverse" && reverseStamp(card.setId) ? <p className="text-center text-[10px] leading-tight text-[#b3a694]">Set symbol placed on the holo photo.</p> : null}
             <AddToCollection
               card={card}
               printing={activeKey ? printingSlug(activeKey) : null}
@@ -174,18 +174,13 @@ export function CardPage({ card, printing, siblings = [] }: { card: PublicCard; 
                 <h1 className="font-serif text-4xl leading-none tracking-tight sm:text-5xl">{card.name}</h1>
                 <p className="mt-2 text-sm text-[#b3a694]">
                   {card.setName} · {card.printedTotal ? `${card.number}/${card.printedTotal}` : card.number}
-                  {selected ? ` · ${variantLabel(selected.key)}` : ""}
+                  {variants.length > 1 && selected ? ` · ${variantLabel(selected.key)}` : ""}
                 </p>
               </div>
               <HoldingToggles cardId={card.id} printing={activeKey ? printingSlug(activeKey) : null} condition={filters.condition} grade={filters.grade} labeled />
             </div>
 
-            {waiting ? (
-              <div className="rounded-2xl border-2 border-[#f0d7a4] bg-[#2a2216] p-4" aria-busy="true">
-                <p className="font-serif text-xl italic text-[#f3ecdf]">Which printing do you mean?</p>
-                <p className="mt-1 text-xs leading-relaxed text-[#d8c9ab]">Checking which printings this card comes in. The price depends on it.</p>
-              </div>
-            ) : null}
+            {waiting ? <p className="text-sm text-[#b3a694]">Checking which printings this card comes in.</p> : null}
             {variants.length > 1 ? (
               <PrintingPicker
                 variants={variants}
@@ -193,7 +188,7 @@ export function CardPage({ card, printing, siblings = [] }: { card: PublicCard; 
                 activeCardId={card.id}
                 needsPick={active.needsPick}
                 missing={null}
-                stamped={placesStamp(card.series)}
+                stamped={Boolean(reverseStamp(card.setId))}
                 captionFor={(entry) => {
                   if (siblings.length === 0) return "";
                   const owner = entry.cardId === card.id ? card : siblings.find((sibling) => sibling.id === entry.cardId);

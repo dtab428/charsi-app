@@ -1,5 +1,5 @@
 import { getCatalog } from "./catalog";
-import { variantLabel, withoutGenericEditions } from "./format";
+import { finishOf, reverseStamp, variantLabel, withoutGenericEditions } from "./format";
 import { recordSnapshots } from "./history";
 import type { CardmarketQuote, EuroSales, GradedQuote, PriceQuote, TrendPoint, VariantQuote } from "./types";
 
@@ -290,6 +290,72 @@ async function catalogHoloVariant(cardId: string): Promise<VariantQuote | null> 
   };
 }
 
+const ECARD_SCANS: Record<string, { folder: string; slug: string }> = {
+  ecard3: { folder: "171", slug: "skyri" },
+};
+const reverseScans = new Map<string, string | null>();
+
+function scanRarity(rarity: string): string | null {
+  const value = rarity.toLowerCase();
+  if (value.includes("uncommon")) return "UC";
+  if (value.includes("common")) return "C";
+  if (value === "rare") return "R";
+  return null;
+}
+
+function bareNumber(number: string): string | null {
+  const match = /^0*(\d+)$/.exec(number);
+  return match ? String(Number(match[1])) : null;
+}
+
+async function imageExists(url: string): Promise<boolean> {
+  try {
+    const response = await fetch(url, {
+      headers: { accept: "image/png,image/jpeg", "user-agent": "Mozilla/5.0" },
+      signal: AbortSignal.timeout(8_000),
+    });
+    return response.ok && (response.headers.get("content-type") ?? "").startsWith("image/");
+  } catch {
+    return false;
+  }
+}
+
+async function ecardReverseScan(setId: string, number: string, rarity: string, printed: number): Promise<string | null> {
+  const known = ECARD_SCANS[setId];
+  const num = bareNumber(number);
+  const code = scanRarity(rarity);
+  if (!known || !num || !code || printed <= 0) return null;
+  const key = `${setId}:${num}:${code}`;
+  if (reverseScans.has(key)) return reverseScans.get(key) ?? null;
+  const url = `https://card-images.fetchtcg.com/poke/${known.folder}/large/poke_${known.slug}-${num}:${printed}_${code}_standard_rev-holo.png`;
+  const found = (await imageExists(url)) ? url : null;
+  reverseScans.set(key, found);
+  return found;
+}
+
+async function assignFinishImages(ids: string[], source: Map<string, PriceQuote | null>): Promise<void> {
+  const catalog = getCatalog();
+  await Promise.all(
+    ids.map(async (id) => {
+      const quote = source.get(id);
+      const card = catalog.cards.find((entry) => entry.id === id);
+      const set = card ? catalog.sets.get(card.set) : undefined;
+      if (!quote || !card || !set) return;
+      const holo = quote.variants.find((variant) => finishOf(variant.key) === "holo" && variant.image);
+      const holoImage = holo?.image || (/holo/i.test(card.rarity) ? card.large || card.small : "");
+      const reverse = quote.variants.find((variant) => finishOf(variant.key) === "reverse");
+      if (!reverse || reverse.image) return;
+      if (reverseStamp(card.set)) {
+        if (holoImage) reverse.image = holoImage;
+        return;
+      }
+      if (!card.set.startsWith("ecard")) return;
+      const scanned = await ecardReverseScan(card.set, card.num, card.rarity, set.printed);
+      reverse.image = scanned || holoImage || null;
+    }),
+  );
+}
+
 async function attachHoloSiblings(ids: string[], source: Map<string, PriceQuote | null>): Promise<void> {
   const needing = ids.filter((id) => {
     const quote = source.get(id);
@@ -492,6 +558,19 @@ async function fromScrydexApi(ids: string[]): Promise<Map<string, PriceQuote | n
   return found;
 }
 
+function hasMarket(quote: PriceQuote | null | undefined): boolean {
+  return Boolean(quote?.variants.some((variant) => variant.market != null));
+}
+
+export function preferPricedVariants(existing: PriceQuote | null, incoming: PriceQuote | null): PriceQuote | null {
+  if (!incoming || !hasMarket(incoming)) return existing;
+  if (!existing || !hasMarket(existing)) {
+    if (!existing) return incoming;
+    return { ...existing, variants: incoming.variants, productUrl: incoming.productUrl ?? existing.productUrl, updatedAt: existing.updatedAt ?? incoming.updatedAt };
+  }
+  return existing;
+}
+
 export async function quotesFor(ids: string[]): Promise<Record<string, PriceQuote | null>> {
   const now = Date.now();
   const missing: string[] = [];
@@ -510,15 +589,16 @@ export async function quotesFor(ids: string[]): Promise<Record<string, PriceQuot
     source = scrydex;
   } else {
     source = await fromTcgdexApi(missing);
-    const missed = missing.filter((id) => !source.get(id));
+    const missed = missing.filter((id) => !hasMarket(source.get(id)));
     if (missed.length > 0) {
       const pokemon = await fromPokemonApi(missed);
-      for (const [id, quote] of pokemon) {
-        if (quote) source.set(id, quote);
+      for (const id of missed) {
+        source.set(id, preferPricedVariants(source.get(id) ?? null, pokemon.get(id) ?? null));
       }
     }
   }
   await attachHoloSiblings(missing, source);
+  await assignFinishImages(missing, source);
   const fresh: Record<string, PriceQuote | null> = {};
   for (const id of missing) {
     const quote = source.get(id) ?? null;
