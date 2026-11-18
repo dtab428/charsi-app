@@ -20,6 +20,8 @@ import { AccountMenu } from "@/components/account-menu";
 import { MarketFilters } from "@/components/market";
 import { COMPANIES, DEFAULT_FILTERS, type Filters } from "@/lib/feed";
 import { keptAfterChoice, marketAmount, mergePrintings, printingFamily, resolveActive } from "@/lib/facts";
+import { findPrinting, printingSlug } from "@/lib/printing";
+import { deskShareFrom, deskShareHref, type DeskShare } from "@/lib/share";
 import { fileSlug, finishOf, money, reverseStamp, variantLabel } from "@/lib/format";
 import { GAMES, SAMPLE_LIST } from "@/lib/games";
 import { cardBands } from "@/lib/photo-bands";
@@ -70,24 +72,57 @@ export function Desk() {
   const [over, setOver] = useState(false);
   const dragDepth = useRef(0);
   const photosRef = useRef<HTMLInputElement>(null);
+  const share = useRef<DeskShare | null>(null);
+
+  function remember(q: string, card?: string | null, printing?: string | null) {
+    const href = deskShareHref(q, card, printing);
+    if (`${window.location.pathname}${window.location.search}` !== href) window.history.replaceState(null, "", href);
+  }
 
   useEffect(() => {
+    const linked = deskShareFrom(window.location.search);
+    share.current = linked;
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE) ?? "null") as Saved | null;
-      if (!saved) return;
-      // Browser storage is read after hydration so the server render stays empty.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setText(saved.text ?? "");
-      setTitle(saved.title ?? "");
-      setFilters(validFilters(saved.filters));
-      setColumns(saved.columns === 2 ? 2 : 1);
-      if (saved.text?.trim()) void pull(saved.text);
+      if (saved) {
+        // Browser storage is read after hydration so the server render stays empty.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setTitle(saved.title ?? "");
+        setFilters(validFilters(saved.filters));
+        setColumns(saved.columns === 2 ? 2 : 1);
+      }
+      const opening = linked?.q || saved?.text || "";
+      if (opening.trim()) {
+        setText(opening);
+        void pull(opening, Boolean(linked));
+      }
     } catch {
       localStorage.removeItem(STORAGE);
     }
-    // The saved list is restored once, when the desk opens.
+    // The saved list, or the shared address, is restored once, when the desk opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    const wanted = share.current;
+    if (!wanted?.card || !wanted.printing) return;
+    setItems((current) => {
+      let changed = false;
+      const next = current.map((item) => {
+        if (!item.card) return item;
+        const family = printingFamily(item.card, item.alternatives);
+        const owner = family.find((card) => card.id === wanted.card);
+        if (!owner) return item;
+        const variants = mergePrintings(family.map((member) => ({ cardId: member.id, variants: quotes[member.id]?.variants ?? [] })));
+        const hit = findPrinting(variants, wanted.printing);
+        if (!hit || (item.card.id === owner.id && item.picked === hit.key)) return item;
+        changed = true;
+        const outside = item.alternatives.filter((alt) => !family.some((member) => member.id === alt.id));
+        return { ...item, card: owner, alternatives: [...family.filter((member) => member.id !== owner.id), ...outside], picked: hit.key, status: outside.length === 0 ? "matched" as const : item.status, included: true };
+      });
+      return changed ? next : current;
+    });
+  }, [quotes, items]);
 
   useEffect(() => {
     const payload: Saved = { text, title, filters, columns };
@@ -207,7 +242,7 @@ export function Desk() {
     await Promise.all([next(), next()]);
   }
 
-  async function pull(list = text) {
+  async function pull(list = text, keepShare = false) {
     if (!list.trim() || pulling) return;
     setPulling(true);
     setError(null);
@@ -224,6 +259,12 @@ export function Desk() {
       }
       const next = payload.items.map((item) => ({ ...item, key: crypto.randomUUID(), included: Boolean(item.card), picked: null }));
       setItems(next);
+      if (keepShare && share.current?.q === list.trim()) {
+        remember(list, share.current.card, share.current.printing);
+      } else {
+        share.current = { q: list.trim(), card: null, printing: null };
+        remember(list);
+      }
       const ids = [...new Set(next.flatMap((item) => (item.card ? printingFamily(item.card, item.alternatives).map((card) => card.id) : [])))];
       void loadPrices(ids);
       void loadMarket(ids);
@@ -235,6 +276,8 @@ export function Desk() {
   }
 
   function choose(key: string, card: PublicCard) {
+    share.current = { q: (share.current?.q || text).trim(), card: card.id, printing: null };
+    remember(share.current.q, card.id);
     setItems((current) =>
       current.map((item) =>
         item.key === key
@@ -510,7 +553,10 @@ export function Desk() {
               onInclude={(key, included) => setItems((current) => current.map((item) => (item.key === key ? { ...item, included } : item)))}
               onRemove={(key) => setItems((current) => current.filter((item) => item.key !== key))}
               onChoose={choose}
-              onPick={(key, cardId, variantKey) =>
+              onPick={(key, cardId, variantKey) => {
+                const printing = printingSlug(variantKey);
+                share.current = { q: (share.current?.q || text).trim(), card: cardId, printing };
+                remember(share.current.q, cardId, printing);
                 setItems((current) =>
                   current.map((item) => {
                     if (item.key !== key || !item.card) return item;
@@ -526,8 +572,8 @@ export function Desk() {
                       included: true,
                     };
                   }),
-                )
-              }
+                );
+              }}
               onCopy={(card) => void copyCard(card)}
               onSave={(card) => void saveCard(card)}
               onZoom={setZoom}
