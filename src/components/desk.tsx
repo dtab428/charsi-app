@@ -20,8 +20,9 @@ import { AccountMenu } from "@/components/account-menu";
 import { MarketFilters } from "@/components/market";
 import { COMPANIES, DEFAULT_FILTERS, type Filters } from "@/lib/feed";
 import { keptAfterChoice, marketAmount, mergePrintings, printingFamily, resolveActive } from "@/lib/facts";
-import { findPrinting, printingSlug } from "@/lib/printing";
+import { printingSlug } from "@/lib/printing";
 import { deskShareFrom, deskShareHref, type DeskShare } from "@/lib/share";
+import { applySharedPrinting } from "@/lib/share-pick";
 import { fileSlug, finishOf, money, reverseStamp, variantLabel } from "@/lib/format";
 import { GAMES, SAMPLE_LIST } from "@/lib/games";
 import { cardBands } from "@/lib/photo-bands";
@@ -72,7 +73,7 @@ export function Desk() {
   const [over, setOver] = useState(false);
   const dragDepth = useRef(0);
   const photosRef = useRef<HTMLInputElement>(null);
-  const share = useRef<DeskShare | null>(null);
+  const share = useRef<(DeskShare & { line: string | null }) | null>(null);
 
   function remember(q: string, card?: string | null, printing?: string | null) {
     const href = deskShareHref(q, card, printing);
@@ -81,7 +82,7 @@ export function Desk() {
 
   useEffect(() => {
     const linked = deskShareFrom(window.location.search);
-    share.current = linked;
+    share.current = linked ? { ...linked, line: null } : null;
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE) ?? "null") as Saved | null;
       if (saved) {
@@ -105,22 +106,13 @@ export function Desk() {
 
   useEffect(() => {
     const wanted = share.current;
-    if (!wanted?.card || !wanted.printing) return;
+    const card = wanted?.card;
+    const printing = wanted?.printing;
+    if (!wanted || !card || !printing) return;
     setItems((current) => {
-      let changed = false;
-      const next = current.map((item) => {
-        if (!item.card) return item;
-        const family = printingFamily(item.card, item.alternatives);
-        const owner = family.find((card) => card.id === wanted.card);
-        if (!owner) return item;
-        const variants = mergePrintings(family.map((member) => ({ cardId: member.id, variants: quotes[member.id]?.variants ?? [] })));
-        const hit = findPrinting(variants, wanted.printing);
-        if (!hit || (item.card.id === owner.id && item.picked === hit.key)) return item;
-        changed = true;
-        const outside = item.alternatives.filter((alt) => !family.some((member) => member.id === alt.id));
-        return { ...item, card: owner, alternatives: [...family.filter((member) => member.id !== owner.id), ...outside], picked: hit.key, status: outside.length === 0 ? "matched" as const : item.status, included: true };
-      });
-      return changed ? next : current;
+      const applied = applySharedPrinting(current, quotes, { card, printing, line: wanted.line });
+      if (applied.line) wanted.line = applied.line;
+      return applied.items;
     });
   }, [quotes, items]);
 
@@ -260,9 +252,10 @@ export function Desk() {
       const next = payload.items.map((item) => ({ ...item, key: crypto.randomUUID(), included: Boolean(item.card), picked: null }));
       setItems(next);
       if (keepShare && share.current?.q === list.trim()) {
+        share.current = { ...share.current, line: null };
         remember(list, share.current.card, share.current.printing);
       } else {
-        share.current = { q: list.trim(), card: null, printing: null };
+        share.current = { q: list.trim(), card: null, printing: null, line: null };
         remember(list);
       }
       const ids = [...new Set(next.flatMap((item) => (item.card ? printingFamily(item.card, item.alternatives).map((card) => card.id) : [])))];
@@ -276,7 +269,7 @@ export function Desk() {
   }
 
   function choose(key: string, card: PublicCard) {
-    share.current = { q: (share.current?.q || text).trim(), card: card.id, printing: null };
+    share.current = { q: (share.current?.q || text).trim(), card: card.id, printing: null, line: key };
     remember(share.current.q, card.id);
     setItems((current) =>
       current.map((item) =>
@@ -555,7 +548,7 @@ export function Desk() {
               onChoose={choose}
               onPick={(key, cardId, variantKey) => {
                 const printing = printingSlug(variantKey);
-                share.current = { q: (share.current?.q || text).trim(), card: cardId, printing };
+                share.current = { q: (share.current?.q || text).trim(), card: cardId, printing, line: key };
                 remember(share.current.q, cardId, printing);
                 setItems((current) =>
                   current.map((item) => {

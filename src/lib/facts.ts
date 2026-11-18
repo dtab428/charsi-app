@@ -36,7 +36,7 @@ export function keptAfterChoice(previous: PublicCard | null, alternatives: Publi
   });
 }
 
-export function printingFamily(card: PublicCard, alternatives: PublicCard[]): PublicCard[] {
+export function printingFamily<T extends { id: string; setId: string; name: string }>(card: T, alternatives: T[]): T[] {
   const name = card.name.toLowerCase();
   const rest = alternatives.filter((alt) => alt.setId === card.setId && alt.name.toLowerCase() === name && alt.id !== card.id);
   return [card, ...rest];
