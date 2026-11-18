@@ -14,7 +14,7 @@ export async function GET(request: Request) {
   url.searchParams.set("scope", "identify");
   url.searchParams.set("redirect_uri", `${origin}/api/auth/discord/callback`);
   url.searchParams.set("state", state);
-  url.searchParams.set("prompt", "none");
+  url.searchParams.set("prompt", "consent");
   const response = NextResponse.redirect(url);
   response.cookies.set(OAUTH_COOKIE, sealed, cookieOptions(600));
   return response;
