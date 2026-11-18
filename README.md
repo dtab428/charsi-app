@@ -37,7 +37,7 @@ Every card, and every printing, has its own page: `/card/<id>` and `/card/<id>/r
 
 ## My Collection
 
-Save a copy from the desk or a card page. Pick Raw, or Graded with a company and grade, a printing, and a number of copies, then send it to My Collection or My Wishlist. A wishlist entry can be one exact thing, such as a TAG 7 reverse holo. Both lists sit at `/collection` and `/wishlist`, with Raw and Graded tabs plus filters for set, year, and artist. A graded copy is drawn as that company’s slab with the card picture in the window. Entries are stored per user in `.data/collections` and `.data/wishlists` (not committed).
+On each desk card, and on the card page, the heart adds that exact copy to My Wishlist and the plus adds it to My Collection. Click again to remove it. Save a copy from the desk or a card page. Pick Raw, or Graded with a company and grade, a printing, and a number of copies, then send it to My Collection or My Wishlist. A wishlist entry can be one exact thing, such as a TAG 7 reverse holo. Both lists sit at `/collection` and `/wishlist`, with Raw and Graded tabs plus filters for set, year, and artist. A graded copy is drawn as that company’s slab with the card picture in the window. Entries are stored per user in `.data/collections` and `.data/wishlists` (not committed).
 
 Sign in with Discord (free):
 

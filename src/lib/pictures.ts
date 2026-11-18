@@ -17,6 +17,19 @@ export async function cardBlob(url: string): Promise<Blob> {
   return png ?? blob;
 }
 
+export async function firstCardBlob(urls: string[]): Promise<Blob> {
+  let failure: unknown = new Error("The picture didn’t come through.");
+  for (const url of urls) {
+    if (!url) continue;
+    try {
+      return await cardBlob(url);
+    } catch (error) {
+      failure = error;
+    }
+  }
+  throw failure;
+}
+
 export function downloadBlob(blob: Blob, filename: string) {
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);

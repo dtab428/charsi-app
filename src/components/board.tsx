@@ -4,6 +4,7 @@ import { CardPicture } from "@/components/card-picture";
 import { Slab } from "@/components/slab";
 import { Button } from "@/components/ui/button";
 import { AddToCollection } from "@/components/add-to-collection";
+import { HoldingToggles } from "@/components/holding-toggles";
 import { CardMarket, ConditionControls } from "@/components/market";
 import { PrintingPicker } from "@/components/printing-picker";
 import { Pressable } from "@/components/ui/ripple";
@@ -15,7 +16,7 @@ import { COMPANIES, GRADES, type Company, type Filters } from "@/lib/feed";
 import { emptyLane } from "@/lib/links";
 import type { ListingLane, Pin, PriceQuote, PublicCard, ResolveItem } from "@/lib/types";
 
-export type DeskItem = ResolveItem & { key: string; included: boolean };
+export type DeskItem = ResolveItem & { key: string; included: boolean; picked: string | null };
 
 const emptyPin: Pin = { source: "discord", price: "", note: "" };
 
@@ -40,7 +41,7 @@ function typedView(grading: DeskItem["grading"]): View | null {
   const allowed = GRADES[company];
   if (grading.grade === null) return { condition: company, grade: allowed[0] ?? "10" };
   const wanted = Number(grading.grade);
-  const nearest = allowed.slice().sort((a, b) => Math.abs(Number(a) - wanted) - Math.abs(Number(b) - wanted))[0];
+  const nearest = allowed.includes(grading.grade) ? grading.grade : allowed.slice().sort((a, b) => Math.abs(Number(a) - wanted) - Math.abs(Number(b) - wanted))[0];
   return { condition: company, grade: nearest ?? "10" };
 }
 
@@ -124,6 +125,7 @@ function CardDesk({
   onInclude,
   onRemove,
   onChoose,
+  onPick,
   onCopy,
   onSave,
   onZoom,
@@ -139,13 +141,15 @@ function CardDesk({
   onInclude: (key: string, included: boolean) => void;
   onRemove: (key: string) => void;
   onChoose: (key: string, card: PublicCard) => void;
+  onPick: (key: string, variantKey: string) => void;
   onCopy: (card: PublicCard) => void;
   onSave: (card: PublicCard) => void;
   onZoom: (card: PublicCard) => void;
   columns: 1 | 2;
 }) {
   const card = item.card;
-  const [pickedKey, setPickedKey] = useState<string | null>(null);
+  const pickedKey = item.picked;
+  const setPickedKey = (next: string) => onPick(item.key, next);
   const [own, setOwn] = useState<View | null>(null);
   const [useTyped, setUseTyped] = useState(true);
   const seen = useRef(`${filters.condition}-${filters.grade}`);
@@ -158,9 +162,11 @@ function CardDesk({
   }, [filters.condition, filters.grade]);
   const view = own ?? (useTyped ? typedView(item.grading) : null) ?? { condition: filters.condition, grade: filters.grade };
   const cardFilters: Filters = { ...filters, condition: view.condition, grade: view.grade };
-  const active = resolveActive({ finish: item.finish, modifiers: item.modifiers, variants: quote?.variants ?? [], pickedKey, loaded: Boolean(quote) });
+  const active = resolveActive({ finish: item.finish, modifiers: item.modifiers, variants: quote?.variants ?? [], pickedKey, loaded: quote !== undefined });
   const activeKey = active.key;
-  const dim = active.needsPick ? "pointer-events-none opacity-30 transition-opacity select-none" : "transition-opacity";
+  const waiting = !item.finish && quote === undefined && loadingQuotes;
+  const hold = active.needsPick || waiting;
+  const dim = hold ? "pointer-events-none opacity-30 transition-opacity select-none" : "transition-opacity";
   const printing = activeKey ? printingSlug(activeKey) : null;
   const finish = finishOf(activeKey);
   const picture = (card && quote && quote.variants.find((entry) => entry.key === activeKey)?.image) || card?.small || card?.large || "";
@@ -170,7 +176,7 @@ function CardDesk({
   return (
     <li className="rounded-[24px] border border-white/10 bg-[#1c1814]/80 p-3 sm:p-5">
       <div className="flex gap-3 sm:gap-5">
-        <div inert={active.needsPick} className={`${dim} ${columns === 2 ? "w-24 shrink-0 self-start sm:w-32" : "w-24 shrink-0 self-start sm:w-40 lg:w-48"}`}>
+        <div inert={hold} className={`${dim} ${columns === 2 ? "w-24 shrink-0 self-start sm:w-32" : "w-24 shrink-0 self-start sm:w-40 lg:w-48"}`}>
           {card ? (
             <div>
               <Face card={card} src={picture} finish={finish} slab={view.condition === "raw" ? null : { company: view.condition, grade: view.grade }} onZoom={onZoom} />
@@ -182,8 +188,8 @@ function CardDesk({
         </div>
         <div className="min-w-0 flex-1">
           <div className="min-w-0">
-            <div className="flex items-baseline gap-2">
-              <h3 className="font-serif text-2xl leading-none tracking-tight sm:text-3xl">
+            <div className="flex items-center gap-2">
+              <h3 className="min-w-0 font-serif text-2xl leading-none tracking-tight sm:text-3xl">
                 {card ? (
                   <a href={cardHref(card.id, printing)} className="hover:underline">
                     {card.name}
@@ -193,6 +199,7 @@ function CardDesk({
                 )}
               </h3>
               {item.quantity > 1 ? <span className="text-sm text-[#d4a574]">×{item.quantity}</span> : null}
+              {card ? <span className="ml-auto"><HoldingToggles cardId={card.id} printing={printing} condition={view.condition} grade={view.grade} /></span> : null}
             </div>
             {card ? <p className="mt-1 text-xs text-[#b3a694]">{printed(card)} · {card.rarity}</p> : null}
           </div>
@@ -222,12 +229,18 @@ function CardDesk({
                 .join(" · ")}
             </p>
           ) : null}
+          {waiting ? (
+            <div className="mt-4 rounded-2xl border-2 border-[#f0d7a4] bg-[#2a2216] p-4" aria-busy="true">
+              <p className="font-serif text-xl italic text-[#f3ecdf]">Which printing do you mean?</p>
+              <p className="mt-1 text-xs leading-relaxed text-[#d8c9ab]">Checking which printings this card comes in. The price depends on it.</p>
+            </div>
+          ) : null}
           {card && quote ? (
             <div className="mt-4">
               <PrintingPicker variants={quote.variants} activeKey={activeKey} needsPick={active.needsPick} missing={active.missing} onPick={setPickedKey} />
             </div>
           ) : null}
-          {card && !active.needsPick ? (
+          {card && !hold ? (
             <div>
               <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-white/10 bg-black/20 p-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-8">
                 <ConditionControls label="This card" condition={view.condition} grade={view.grade} onChange={(condition, grade) => setOwn({ condition, grade })} />
@@ -248,7 +261,7 @@ function CardDesk({
               ) : null}
             </div>
           ) : null}
-          <div inert={active.needsPick} className={dim}>
+          <div inert={hold} className={dim}>
             <Actions item={item} onInclude={onInclude} onRemove={onRemove} onCopy={onCopy} onSave={onSave} printing={printing} filters={cardFilters} />
           </div>
         </div>
@@ -268,6 +281,7 @@ export function Board({
   onInclude,
   onRemove,
   onChoose,
+  onPick,
   onCopy,
   onSave,
   onZoom,
@@ -283,6 +297,7 @@ export function Board({
   onInclude: (key: string, included: boolean) => void;
   onRemove: (key: string) => void;
   onChoose: (key: string, card: PublicCard) => void;
+  onPick: (key: string, variantKey: string) => void;
   onCopy: (card: PublicCard) => void;
   onSave: (card: PublicCard) => void;
   onZoom: (card: PublicCard) => void;
@@ -305,6 +320,7 @@ export function Board({
             onInclude={onInclude}
             onRemove={onRemove}
             onChoose={onChoose}
+            onPick={onPick}
             onCopy={onCopy}
             onSave={onSave}
             onZoom={onZoom}

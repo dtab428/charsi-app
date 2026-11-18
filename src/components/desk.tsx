@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Board, type DeskItem } from "@/components/board";
+import { CardPicture } from "@/components/card-picture";
+import { HoldingsProvider } from "@/components/holding-toggles";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -17,15 +19,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { AccountMenu } from "@/components/account-menu";
 import { MarketFilters } from "@/components/market";
 import { COMPANIES, DEFAULT_FILTERS, type Filters } from "@/lib/feed";
-import { marketAmount } from "@/lib/facts";
-import { fileSlug, money } from "@/lib/format";
+import { marketAmount, resolveActive } from "@/lib/facts";
+import { fileSlug, finishOf, money } from "@/lib/format";
 import { GAMES, SAMPLE_LIST } from "@/lib/games";
 import { cardBands } from "@/lib/photo-bands";
-import { cardBlob, copyBlob, downloadBlob } from "@/lib/pictures";
+import { copyBlob, downloadBlob, firstCardBlob } from "@/lib/pictures";
 import { renderSheet } from "@/lib/sheet";
 import type { ListingLane, Pin, PriceQuote, PublicCard, ResolveItem } from "@/lib/types";
 import { ChevronDownIcon } from "lucide-react";
-import Image from "next/image";
 
 const STORAGE = "charsi.desk.v1";
 
@@ -104,6 +105,11 @@ export function Desk() {
       });
       const payload = await readJson<{ source?: string; quotes?: Record<string, PriceQuote | null>; error?: string }>(response);
       if (!response.ok) {
+        setQuotes((current) => {
+          const next = { ...current };
+          for (const id of ids) if (next[id] === undefined) next[id] = null;
+          return next;
+        });
         setQuoteSource(response.status === 401 ? "Quotes stay with the signed-in desk." : "Quotes didn’t refresh. The market links still open.");
         return;
       }
@@ -118,6 +124,11 @@ export function Desk() {
               : "No quote came back. The market links still open.",
       );
     } catch {
+      setQuotes((current) => {
+        const next = { ...current };
+        for (const id of ids) if (next[id] === undefined) next[id] = null;
+        return next;
+      });
       setQuoteSource("Quotes didn’t refresh. The market links still open.");
     } finally {
       setLoadingQuotes(false);
@@ -175,7 +186,7 @@ export function Desk() {
           const item = payload.item;
           setItems((current) => {
             if (current.length >= 80) return current;
-            return [...current, { ...item, key: crypto.randomUUID(), included: Boolean(item.card) }];
+            return [...current, { ...item, key: crypto.randomUUID(), included: Boolean(item.card), picked: null }];
           });
           if (payload.line) {
             setText((current) => (current.trim() ? `${current.trim()}\n${payload.line}` : payload.line ?? ""));
@@ -210,7 +221,7 @@ export function Desk() {
         setError(payload.error ?? "The catalog didn’t answer.");
         return;
       }
-      const next = payload.items.map((item) => ({ ...item, key: crypto.randomUUID(), included: Boolean(item.card) }));
+      const next = payload.items.map((item) => ({ ...item, key: crypto.randomUUID(), included: Boolean(item.card), picked: null }));
       setItems(next);
       const ids = [...new Set(next.flatMap((item) => (item.card ? [item.card.id] : [])))];
       void loadPrices(ids);
@@ -232,12 +243,12 @@ export function Desk() {
 
   async function copyCard(card: PublicCard) {
     try {
-      const blob = await cardBlob(card.large || card.small);
+      const blob = await firstCardBlob([card.large, card.small]);
       await copyBlob(blob);
       toast.success("Picture copied");
     } catch {
       try {
-        const blob = await cardBlob(card.large || card.small);
+        const blob = await firstCardBlob([card.large, card.small]);
         downloadBlob(blob, fileSlug(card.name, card.setCode, card.number));
         toast("Couldn’t copy, so it downloaded instead");
       } catch {
@@ -248,7 +259,7 @@ export function Desk() {
 
   async function saveCard(card: PublicCard) {
     try {
-      const blob = await cardBlob(card.large || card.small);
+      const blob = await firstCardBlob([card.large, card.small]);
       downloadBlob(blob, fileSlug(card.name, card.setCode, card.number));
     } catch {
       toast.error("The picture didn’t come through");
@@ -260,11 +271,19 @@ export function Desk() {
       .filter((item) => item.included && item.card)
       .flatMap((item) => {
         const card = item.card as PublicCard;
+        const quote = quotes[card.id];
+        const variants = quote?.variants ?? [];
+        const active = resolveActive({ finish: item.finish, modifiers: item.modifiers, variants, pickedKey: item.picked, loaded: quote !== undefined });
+        const printing = variants.find((entry) => entry.key === active.key) ?? null;
+        const finish = finishOf(active.key);
         const copies = Math.min(item.quantity, 8);
+        const grade = item.grading ? `${item.grading.company}${item.grading.grade ? ` ${item.grading.grade}` : ""}` : "";
         return Array.from({ length: copies }, () => ({
-          src: card.large || card.small,
+          srcs: [printing?.image ?? "", card.large, card.small],
           name: card.name,
-          line: `${card.setCode || card.setName} · ${card.printedTotal ? `${card.number}/${card.printedTotal}` : card.number}`,
+          line: [`${card.setCode || card.setName} · ${card.printedTotal ? `${card.number}/${card.printedTotal}` : card.number}`, printing ? printing.label : "", grade].filter(Boolean).join(" · "),
+          finish,
+          stamp: card.setCode || card.setName,
         }));
       })
       .slice(0, 36);
@@ -471,6 +490,7 @@ export function Desk() {
                 </Button>
               </div>
             </div>
+            <HoldingsProvider>
             <Board
               items={items}
               quotes={quotes}
@@ -482,11 +502,13 @@ export function Desk() {
               onInclude={(key, included) => setItems((current) => current.map((item) => (item.key === key ? { ...item, included } : item)))}
               onRemove={(key) => setItems((current) => current.filter((item) => item.key !== key))}
               onChoose={choose}
+              onPick={(key, picked) => setItems((current) => current.map((item) => (item.key === key ? { ...item, picked } : item)))}
               onCopy={(card) => void copyCard(card)}
               onSave={(card) => void saveCard(card)}
               onZoom={setZoom}
               columns={columns}
             />
+            </HoldingsProvider>
           </section>
         ) : null}
       </main>
@@ -506,7 +528,7 @@ export function Desk() {
                   {zoom.printedTotal ? `/${zoom.printedTotal}` : ""} · {zoom.rarity}
                 </DialogDescription>
               </DialogHeader>
-              <Image src={zoom.large || zoom.small} alt={zoom.name} width={480} height={670} unoptimized className="mx-auto max-h-[70vh]" style={{ width: "auto", height: "auto" }} />
+              <div className="mx-auto w-full max-w-[22rem]"><CardPicture src={zoom.large || zoom.small} backup={zoom.small} alt={zoom.name} finish={null} width={480} height={670} priority /></div>
               <div className="flex gap-2">
                 <Button type="button" onClick={() => void copyCard(zoom)}>Copy this picture</Button>
                 <Button type="button" variant="secondary" onClick={() => void saveCard(zoom)}>Save this picture</Button>

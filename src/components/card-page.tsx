@@ -5,6 +5,7 @@ import { CardPicture } from "@/components/card-picture";
 import { Slab } from "@/components/slab";
 import { useEffect, useState } from "react";
 import { SiteHeader } from "@/components/account-menu";
+import { HoldingsProvider, HoldingToggles } from "@/components/holding-toggles";
 import { AddToCollection } from "@/components/add-to-collection";
 import { CardMarket, MarketFilters } from "@/components/market";
 import { PriceChart, type ChartPoint } from "@/components/price-chart";
@@ -85,7 +86,9 @@ export function CardPage({ card, printing }: { card: PublicCard; printing: strin
   const activeKey = active.key;
   const selected = variants.find((entry) => entry.key === activeKey) ?? null;
   const finish = finishOf(activeKey) ?? finishOf(printing);
-  const dim = active.needsPick ? "pointer-events-none opacity-30 transition-opacity select-none" : "transition-opacity";
+  const waiting = !printing && quote === undefined;
+  const hold = active.needsPick || waiting;
+  const dim = hold ? "pointer-events-none opacity-30 transition-opacity select-none" : "transition-opacity";
   const auctions = lanes?.auctions ?? emptyLane(card, "auction");
   const buyNow = lanes?.buyNow ?? emptyLane(card, "bin");
 
@@ -109,12 +112,13 @@ export function CardPage({ card, printing }: { card: PublicCard; printing: strin
   return (
     <div className="min-h-screen">
       <SiteHeader />
+      <HoldingsProvider>
       <main className="mx-auto flex w-full max-w-[1200px] flex-col gap-6 px-4 py-6">
         <Link href="/" className="text-sm text-[#b3a694] hover:text-[#f3ecdf]">
           ← Back to the desk
         </Link>
         <div className="grid gap-6 lg:grid-cols-[minmax(0,19rem)_minmax(0,1fr)]">
-          <aside inert={active.needsPick} className={`flex flex-col gap-4 ${dim}`}>
+          <aside inert={hold} className={`flex flex-col gap-4 ${dim}`}>
             {filters.condition === "raw" ? (
               <CardPicture src={selected?.image || card.large || card.small} alt={card.name} finish={finish} stamp={card.setCode || card.setName} width={480} height={670} priority className="rounded-xl bg-[#2a241e]" />
             ) : (
@@ -143,19 +147,28 @@ export function CardPage({ card, printing }: { card: PublicCard; printing: strin
           </aside>
 
           <div className="flex min-w-0 flex-col gap-5">
-            <div>
-              <h1 className="font-serif text-4xl leading-none tracking-tight sm:text-5xl">{card.name}</h1>
-              <p className="mt-2 text-sm text-[#b3a694]">
-                {card.setName} · {card.printedTotal ? `${card.number}/${card.printedTotal}` : card.number}
-                {selected ? ` · ${variantLabel(selected.key)}` : ""}
-              </p>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h1 className="font-serif text-4xl leading-none tracking-tight sm:text-5xl">{card.name}</h1>
+                <p className="mt-2 text-sm text-[#b3a694]">
+                  {card.setName} · {card.printedTotal ? `${card.number}/${card.printedTotal}` : card.number}
+                  {selected ? ` · ${variantLabel(selected.key)}` : ""}
+                </p>
+              </div>
+              <HoldingToggles cardId={card.id} printing={activeKey ? printingSlug(activeKey) : null} condition={filters.condition} grade={filters.grade} labeled />
             </div>
 
+            {waiting ? (
+              <div className="rounded-2xl border-2 border-[#f0d7a4] bg-[#2a2216] p-4" aria-busy="true">
+                <p className="font-serif text-xl italic text-[#f3ecdf]">Which printing do you mean?</p>
+                <p className="mt-1 text-xs leading-relaxed text-[#d8c9ab]">Checking which printings this card comes in. The price depends on it.</p>
+              </div>
+            ) : null}
             {variants.length > 1 ? (
               <PrintingPicker variants={variants} activeKey={activeKey} needsPick={active.needsPick} missing={null} hrefFor={(key) => cardHref(card.id, printingSlug(key))} />
             ) : null}
 
-            <div className={`${active.needsPick ? "hidden" : "flex"} flex-col gap-5`}>
+            <div className={`${hold ? "hidden" : "flex"} flex-col gap-5`}>
             <MarketFilters filters={filters} onChange={setFilters} conditionLabel="Condition" />
 
             {filters.condition === "raw" ? (
@@ -215,6 +228,7 @@ export function CardPage({ card, printing }: { card: PublicCard; printing: strin
           </div>
         </div>
       </main>
+      </HoldingsProvider>
     </div>
   );
 }

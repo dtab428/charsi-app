@@ -258,7 +258,7 @@ async function holoSibling(cardId: string): Promise<VariantQuote | null> {
 async function attachHoloSiblings(ids: string[], source: Map<string, PriceQuote | null>): Promise<void> {
   const needing = ids.filter((id) => {
     const quote = source.get(id);
-    return quote && !quote.variants.some((variant) => variant.key === "holofoil" || variant.key === "unlimitedHolofoil");
+    return quote && !quote.variants.some((variant) => (variant.key === "holofoil" || variant.key === "unlimitedHolofoil") && variant.market != null);
   });
   for (const group of chunk(needing, 4)) {
     await Promise.all(
@@ -267,7 +267,11 @@ async function attachHoloSiblings(ids: string[], source: Map<string, PriceQuote 
         if (!quote) return;
         try {
           const sibling = await holoSibling(id);
-          if (sibling) quote.variants.push(sibling);
+          if (sibling) {
+            const index = quote.variants.findIndex((variant) => variant.key === sibling.key);
+            if (index >= 0) quote.variants[index] = sibling;
+            else quote.variants.push(sibling);
+          }
         } catch {
           /* a missing holo sibling leaves the finishes TCGdex already listed */
         }
@@ -304,6 +308,17 @@ function fromTcgdex(card: Record<string, unknown>): PriceQuote | null {
         productUrl: productId ? `https://www.tcgplayer.com/product/${productId}` : null,
       });
     }
+  }
+  const flags = record(card.variants);
+  const wanted: [string, string][] = [
+    ["normal", "normal"],
+    ["holo", "holofoil"],
+    ["reverse", "reverseHolofoil"],
+  ];
+  const sharedUrl = variants.find((entry) => entry.productUrl)?.productUrl ?? productUrl;
+  for (const [flag, key] of wanted) {
+    if (flags?.[flag] !== true || variants.some((entry) => entry.key === key)) continue;
+    variants.push({ key, label: variantLabel(key), market: null, low: null, mid: null, high: null, currency: "USD", productUrl: sharedUrl });
   }
   const plain = market ? euroSales(market, "") : null;
   const holo = market ? euroSales(market, "-holo") : null;

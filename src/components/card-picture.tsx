@@ -52,6 +52,7 @@ export function CardPicture({
   height,
   priority,
   className,
+  backup,
 }: {
   src: string;
   alt: string;
@@ -61,10 +62,13 @@ export function CardPicture({
   height: number;
   priority?: boolean;
   className?: string;
+  backup?: string;
 }) {
-  const [fallback, setFallback] = useState<{ for: string; src: string } | null>(null);
+  const [attempt, setAttempt] = useState<{ for: string; step: number }>({ for: src, step: 0 });
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
-  const current = fallback?.for === src ? fallback.src : src;
+  const chain = [src, `/api/image?src=${encodeURIComponent(src)}`, ...(backup ? [backup, `/api/image?src=${encodeURIComponent(backup)}`] : [])].filter((entry) => entry.startsWith("https://") || entry.startsWith("/api/image") || entry === src);
+  const step = attempt.for === src ? attempt.step : 0;
+  const current = chain[Math.min(step, chain.length - 1)] ?? src;
   const loaded = loadedFor === current;
 
   return (
@@ -81,9 +85,7 @@ export function CardPicture({
         style={{ width: "100%", height: "auto" }}
         onLoad={() => setLoadedFor(current)}
         onError={() => {
-          if (!current.startsWith("/api/image") && src.startsWith("https://")) {
-            setFallback({ for: src, src: `/api/image?src=${encodeURIComponent(src)}` });
-          }
+          if (step + 1 < chain.length) setAttempt({ for: src, step: step + 1 });
         }}
       />
       <Mark finish={finish} stamp={stamp} />

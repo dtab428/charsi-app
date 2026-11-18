@@ -1,11 +1,63 @@
 import { sheetDate } from "./format";
-import { cardBlob } from "./pictures";
+import type { Finish } from "./format";
+import { firstCardBlob } from "./pictures";
 
 export type SheetCell = {
-  src: string;
+  srcs: string[];
   name: string;
   line: string;
+  finish: Finish | null;
+  stamp: string;
 };
+
+function drawStamp(context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, label: string) {
+  const size = width * 0.22;
+  const left = x + width * 0.66;
+  const top = y + height * 0.32;
+  const center = size / 2;
+  context.save();
+  context.translate(left, top);
+  context.shadowColor = "rgba(0,0,0,0.65)";
+  context.shadowBlur = 2;
+  context.shadowOffsetY = 1;
+  context.fillStyle = "#c6a15b";
+  context.beginPath();
+  context.arc(center, center, size * 0.47, 0, Math.PI * 2);
+  context.fill();
+  context.shadowColor = "transparent";
+  context.lineWidth = Math.max(1, size * 0.023);
+  context.strokeStyle = "#5c4316";
+  context.beginPath();
+  context.arc(center, center, size * 0.375, 0, Math.PI * 2);
+  context.stroke();
+  context.strokeStyle = "#f3e2b0";
+  context.lineWidth = Math.max(0.8, size * 0.016);
+  context.beginPath();
+  context.arc(center, center, size * 0.42, 0, Math.PI * 2);
+  context.stroke();
+  const text = (label || "R").slice(0, 4).toUpperCase();
+  context.fillStyle = "#3a2a0c";
+  context.font = `700 ${size * (text.length > 3 ? 0.14 : 0.17)}px sans-serif`;
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.fillText(text, center, center);
+  context.restore();
+}
+
+function drawPill(context: CanvasRenderingContext2D, x: number, y: number, text: string, fill: string, ink: string) {
+  context.save();
+  context.font = "600 10px sans-serif";
+  const label = text.toUpperCase();
+  const width = context.measureText(label).width + 16;
+  context.fillStyle = fill;
+  context.beginPath();
+  context.roundRect(x + 6, y + 6, width, 18, 9);
+  context.fill();
+  context.fillStyle = ink;
+  context.textBaseline = "middle";
+  context.fillText(label, x + 14, y + 15.5);
+  context.restore();
+}
 
 function wrap(context: CanvasRenderingContext2D, text: string, max: number): string[] {
   const words = text.split(/\s+/).filter(Boolean);
@@ -57,7 +109,7 @@ export async function renderSheet(cells: SheetCell[], title: string): Promise<Bl
   const bitmaps = await Promise.all(
     cells.map(async (cell) => {
       try {
-        const blob = await cardBlob(cell.src);
+        const blob = await firstCardBlob(cell.srcs);
         return await createImageBitmap(blob);
       } catch {
         return null;
@@ -73,8 +125,20 @@ export async function renderSheet(cells: SheetCell[], title: string): Promise<Bl
     context.fillStyle = "#2a241e";
     context.fillRect(x, y, cardWidth, cardHeight);
     const bitmap = bitmaps[index];
-    if (bitmap) context.drawImage(bitmap, x, y, cardWidth, cardHeight);
-    else {
+    if (bitmap) {
+      context.drawImage(bitmap, x, y, cardWidth, cardHeight);
+      if (cell.finish === "reverse") {
+        drawStamp(context, x, y, cardWidth, cardHeight, cell.stamp);
+        drawPill(context, x, y, "Reverse", "#c6a15b", "#241c14");
+      } else if (cell.finish === "holo") {
+        context.strokeStyle = "#f0d7a4";
+        context.lineWidth = 2;
+        context.strokeRect(x + 1, y + 1, cardWidth - 2, cardHeight - 2);
+        drawPill(context, x, y, "Holo", "#f0d7a4", "#241c14");
+      } else if (cell.finish === "normal") {
+        drawPill(context, x, y, "Non-holo", "rgba(20,17,14,0.85)", "#f3ecdf");
+      }
+    } else {
       context.fillStyle = "#f3ecdf";
       context.font = "16px Georgia, serif";
       context.fillText("Picture missing", x + 16, y + cardHeight / 2);

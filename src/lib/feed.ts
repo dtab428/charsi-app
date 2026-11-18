@@ -9,12 +9,14 @@ export type Condition = "raw" | Company;
 export type Filters = { source: SourceFilter; condition: Condition; grade: string };
 
 export const COMPANIES: Company[] = ["PSA", "BGS", "CGC", "TAG", "SGC"];
+const WHOLE = ["10", "9", "8", "7", "6", "5", "4", "3", "2", "1"];
+const HALVES = ["10", "9.5", "9", "8.5", "8", "7.5", "7", "6.5", "6", "5.5", "5", "4", "3", "2", "1"];
 export const GRADES: Record<Company, string[]> = {
-  PSA: ["10", "9", "8", "7"],
-  BGS: ["10", "9.5", "9", "8.5", "8", "7.5", "7"],
-  CGC: ["10", "9.5", "9", "8.5", "8", "7.5", "7"],
-  TAG: ["10", "9.5", "9", "8.5", "8", "7.5", "7"],
-  SGC: ["10", "9.5", "9", "8.5", "8", "7.5", "7"],
+  PSA: WHOLE,
+  BGS: HALVES,
+  CGC: HALVES,
+  TAG: HALVES,
+  SGC: HALVES,
 };
 export const DEFAULT_FILTERS: Filters = { source: "all", condition: "raw", grade: "10" };
 
@@ -289,8 +291,49 @@ export function buildFeed(input: {
       live.push(laneLinkRow(card, auctions, "auction", grading, 0, asked));
       live.push(laneLinkRow(card, buyNow, "bin", grading, 1, asked));
     }
+    const rawVariant = quote?.variants.find((entry) => entry.key === variantKey) ?? pickVariant([], quote?.variants ?? []);
+    const marketSource: FeedSource = quote?.source === "scrydex" ? "scrydex" : "tcgplayer";
+    if (rawVariant && rawVariant.market != null && keep(marketSource)) {
+      const stamped = quoteDate(quote?.updatedAt);
+      ended.push({
+        id: "raw-beside-grade",
+        source: marketSource,
+        label: "Raw market price",
+        sub: `${rawVariant.label} · ungraded, not ${grading.company} ${grading.grade}`,
+        value: money(rawVariant.market, rawVariant.currency),
+        when: stamped ? `Updated ${stamped}` : null,
+        href: affiliateUrl(httpsHref(rawVariant.productUrl ?? quote?.productUrl, tcgplayerSearchUrl(card))),
+        link: false,
+        at: stamp(quote?.updatedAt),
+        order: 2,
+      });
+    }
+    const rawSales = saleAverages(quote, rawVariant);
+    if (rawSales && keep("cardmarket")) {
+      const cardmarketHref = httpsHref(quote?.cardmarket?.url, cardmarketSearchUrl(card));
+      const periods: [number | null, string, number][] = [
+        [rawSales.avg1, "Yesterday", 3],
+        [rawSales.avg7, "7-day average", 4],
+        [rawSales.avg30, "30-day average", 5],
+      ];
+      periods.forEach(([value, label, order]) => {
+        if (value == null) return;
+        ended.push({
+          id: `raw-cm-${order}`,
+          source: "cardmarket",
+          label: "Raw sold average",
+          sub: `${label} · ungraded`,
+          value: money(value, "EUR"),
+          when: null,
+          href: cardmarketHref,
+          link: false,
+          at: stamp(quote?.cardmarket?.updatedAt),
+          order,
+        });
+      });
+    }
     if (hits.length === 0) {
-      notice = `No ${grading.company} ${grading.grade} price in the free feeds. TCGplayer and Cardmarket don’t publish graded prices here, so graded numbers need a paid feed such as Scrydex. These links open the eBay results for that grade.`;
+      notice = `No ${grading.company} ${grading.grade} sold price in the free feeds. The numbers above are the raw card. The eBay links open that grade. Graded sold prices need a paid feed such as Scrydex.`;
     }
   }
 
