@@ -17,5 +17,14 @@ test("Unlimited keeps an unlimited title and drops a 1st edition title", () => {
 test("the search clause names one printing and rejects the other", () => {
   assert.equal(editionClause("first"), "1st -unlimited -unl");
   assert.equal(editionClause("unlimited"), "Unlimited -1st -shadowless");
+  assert.equal(editionClause("shadowless"), "shadowless -1st -first");
   assert.equal(editionClause(null), "");
+});
+
+test("base charizard shadowless keeps unlimited shadowless and drops the 1st edition stamp", () => {
+  assert.equal(listingMatchesPrinting("Charizard 4/102 Unlimited Shadowless Holo", "unlimitedShadowlessHolofoil"), true);
+  assert.equal(listingMatchesPrinting("Charizard 4/102 1st Edition Shadowless", "unlimitedShadowlessHolofoil"), false);
+  assert.equal(listingMatchesPrinting("Charizard 4/102 1st Edition Shadowless Holo", "firstEditionShadowlessHolofoil"), true);
+  assert.equal(listingMatchesPrinting("Charizard 4/102 Unlimited Shadowless", "unlimitedHolofoil"), false);
+  assert.equal(listingMatchesPrinting("Charizard 4/102 Unlimited Holo", "unlimitedHolofoil"), true);
 });

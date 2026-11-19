@@ -10,7 +10,7 @@ import { PrintingPicker } from "@/components/printing-picker";
 import { Pressable } from "@/components/ui/ripple";
 import { useEffect, useRef, useState } from "react";
 import { mergePrintings, printingFamily, resolveActive, shownPicture } from "@/lib/facts";
-import { editionOf, finishOf, releaseYear, reverseStamp, variantLabel, type Finish } from "@/lib/format";
+import { coversEditionStamp, editionOf, finishOf, releaseYear, reverseStamp, variantLabel, type Finish } from "@/lib/format";
 import { cardHref, printingSlug } from "@/lib/printing";
 import { COMPANIES, GRADES, type Company, type Filters } from "@/lib/feed";
 import { emptyLane } from "@/lib/links";
@@ -227,7 +227,7 @@ function CardDesk({
                 {asking ? `${printed(shown)} · which printing?` : `${printed(shown)} · ${printings.length > 1 && activeKey ? variantLabel(activeKey) : shown.rarity}`}
               </p>
             ) : null}
-            {editionOf(activeKey) === "unlimited" ? <p className="mt-1 text-xs leading-snug text-[#b3a694]">Unlimited has no Edition 1 stamp, so it’s covered on this photo.</p> : null}
+            {coversEditionStamp(activeKey) ? <p className="mt-1 text-xs leading-snug text-[#b3a694]">{editionOf(activeKey) === "shadowless" ? "Shadowless" : "Unlimited"} has no Edition 1 stamp, so it’s covered on this photo.</p> : null}
           </div>
           <p className="mt-1 text-xs text-[#d4a574]/90">Heard “{item.raw}”</p>
           {item.corrections.map((correction) => (

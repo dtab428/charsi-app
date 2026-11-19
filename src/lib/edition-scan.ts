@@ -14,6 +14,14 @@ export function editionStampBox(width: number, height: number): { left: number; 
   return { left, top, width: boxWidth, height: boxHeight };
 }
 
+function isPaper(pr: number, pg: number, pb: number): boolean {
+  const min = Math.min(pr, pg, pb);
+  const max = Math.max(pr, pg, pb);
+  if (min > 170 && max - min < 28) return true;
+  // Base Set's margin is salmon. The gold bar is yellow, so blue stays well below red.
+  return pr > 180 && pg > 120 && pb > 110 && pr - pb < 100 && pr - pg < 90;
+}
+
 function meanOf(data: Buffer, channels: number): [number, number, number] | null {
   const pixels = Math.floor(data.length / channels);
   if (pixels === 0) return null;
@@ -26,7 +34,7 @@ function meanOf(data: Buffer, channels: number): [number, number, number] | null
     const pr = data[offset] ?? 0;
     const pg = data[offset + 1] ?? 0;
     const pb = data[offset + 2] ?? 0;
-    if (Math.min(pr, pg, pb) < 170 || Math.max(pr, pg, pb) - Math.min(pr, pg, pb) > 28) continue;
+    if (!isPaper(pr, pg, pb)) continue;
     r += pr;
     g += pg;
     b += pb;
@@ -55,7 +63,16 @@ export async function coverEditionStamp(input: Buffer): Promise<Buffer> {
     .extract({ left: box.left, top: sampleTop, width: box.width, height: sampleHeight })
     .raw()
     .toBuffer({ resolveWithObject: true });
-  const paper = meanOf(below.data, below.info.channels);
+  let paper = meanOf(below.data, below.info.channels);
+  if (!paper) {
+    // Base Set's name line sits right under the stamp, so the strip below is type, not paper.
+    const inside = await sharp(input, { failOn: "none" })
+      .rotate()
+      .extract({ left: box.left, top: box.top, width: box.width, height: box.height })
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    paper = meanOf(inside.data, inside.info.channels);
+  }
   if (!paper) return input;
 
   const feather = height < 400 ? 1 : Math.max(2, Math.round(height * 0.004));

@@ -1,6 +1,7 @@
+import { applyBaseEditions, baseEditionRows, printedNumber, type BaseEditionRow } from "./base-editions";
 import { getCatalog } from "./catalog";
 import { withFinishFlags } from "./facts";
-import { finishOf, reverseStamp, variantLabel, withoutGenericEditions } from "./format";
+import { editionOf, finishOf, reverseStamp, variantLabel, withoutGenericEditions } from "./format";
 import { recordSnapshots } from "./history";
 import type { CardmarketQuote, EuroSales, GradedQuote, PriceQuote, TrendPoint, VariantQuote } from "./types";
 
@@ -571,6 +572,89 @@ async function fromScrydexApi(ids: string[]): Promise<Map<string, PriceQuote | n
   return found;
 }
 
+let baseEditionTable: Promise<Map<string, BaseEditionRow[]>> | null = null;
+
+function readList(payload: unknown): Record<string, unknown>[] {
+  const root = record(payload);
+  const rows = root?.results ?? root?.data;
+  return Array.isArray(rows) ? rows.map((entry) => record(entry)).filter((entry): entry is Record<string, unknown> => Boolean(entry)) : [];
+}
+
+async function loadBaseEditionTable(): Promise<Map<string, BaseEditionRow[]>> {
+  const headers = { accept: "application/json", "user-agent": "charsi/1.0 (pokemon collector desk)" };
+  const groups = [
+    { id: 604, kind: "base" as const },
+    { id: 1663, kind: "shadowless" as const },
+  ];
+  const table = new Map<string, BaseEditionRow[]>();
+  for (const group of groups) {
+    const [products, prices] = await Promise.all([
+      fetchJson(`https://tcgcsv.com/tcgplayer/3/${group.id}/products`, { headers }),
+      fetchJson(`https://tcgcsv.com/tcgplayer/3/${group.id}/prices`, { headers }),
+    ]);
+    const parsedProducts = readList(products).flatMap((row) => {
+      const productId = typeof row.productId === "number" ? row.productId : 0;
+      const name = text(row.name) ?? "";
+      const extended = Array.isArray(row.extendedData) ? row.extendedData : [];
+      const numberField = extended.map((entry) => record(entry)).find((entry) => text(entry?.name) === "Number");
+      const number = text(numberField?.value);
+      return productId && name ? [{ productId, name, number }] : [];
+    });
+    for (const row of baseEditionRows(
+      parsedProducts,
+      readList(prices).map((row) => ({
+        productId: typeof row.productId === "number" ? row.productId : 0,
+        subTypeName: text(row.subTypeName) ?? "",
+        lowPrice: row.lowPrice,
+        midPrice: row.midPrice,
+        highPrice: row.highPrice,
+        marketPrice: row.marketPrice,
+      })),
+      group.kind,
+    )) {
+      const key = `${row.number}|${row.name.toLowerCase()}`;
+      const list = table.get(key) ?? [];
+      list.push(row);
+      table.set(key, list);
+    }
+  }
+  return table;
+}
+
+function baseEditionTableOnce(): Promise<Map<string, BaseEditionRow[]>> {
+  if (!baseEditionTable) {
+    baseEditionTable = loadBaseEditionTable().catch((error: unknown) => {
+      baseEditionTable = null;
+      throw error;
+    });
+  }
+  return baseEditionTable;
+}
+
+async function attachBaseEditions(ids: string[], source: Map<string, PriceQuote | null>): Promise<void> {
+  const catalog = getCatalog();
+  const wanted = ids.filter((id) => {
+    const card = catalog.cards.find((entry) => entry.id === id);
+    const quote = source.get(id);
+    return Boolean(card && card.set === "base1" && quote && !quote.variants.some((variant) => editionOf(variant.key)));
+  });
+  if (wanted.length === 0) return;
+  let table: Map<string, BaseEditionRow[]>;
+  try {
+    table = await baseEditionTableOnce();
+  } catch {
+    return;
+  }
+  for (const id of wanted) {
+    const card = catalog.cards.find((entry) => entry.id === id);
+    const quote = source.get(id);
+    const number = printedNumber(card?.num);
+    if (!card || !quote || !number) continue;
+    const next = applyBaseEditions(quote.variants, table.get(`${number}|${card.name.toLowerCase()}`) ?? []);
+    if (next) source.set(id, { ...quote, variants: next });
+  }
+}
+
 function hasMarket(quote: PriceQuote | null | undefined): boolean {
   return Boolean(quote?.variants.some((variant) => variant.market != null));
 }
@@ -612,6 +696,7 @@ export async function quotesFor(ids: string[]): Promise<Record<string, PriceQuot
   }
   await attachHoloSiblings(missing, source);
   await assignFinishImages(missing, source);
+  await attachBaseEditions(missing, source);
   const fresh: Record<string, PriceQuote | null> = {};
   for (const id of missing) {
     const quote = source.get(id) ?? null;

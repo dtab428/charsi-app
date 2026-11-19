@@ -97,6 +97,10 @@ const TCG_PRINTING: Record<string, string> = {
   unlimited: "Unlimited",
   unlimitedNormal: "Unlimited",
   unlimitedHolofoil: "Unlimited Holofoil",
+  firstEditionShadowless: "1st Edition",
+  firstEditionShadowlessHolofoil: "1st Edition Holofoil",
+  unlimitedShadowless: "Unlimited",
+  unlimitedShadowlessHolofoil: "Unlimited Holofoil",
 };
 
 // A product page with no printing or condition selected mixes every copy.

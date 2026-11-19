@@ -7,7 +7,17 @@ import type { VariantQuote } from "@/lib/types";
 function noteFor(key: string, stamped: boolean): string {
   const finish = finishOf(key);
   const edition = editionOf(key);
-  const editionNote = edition === "first" ? "First print run." : edition === "unlimited" ? "Later print run." : edition === "shadowless" ? "Shadowless border." : "";
+  const shadowless = /shadowless/i.test(key);
+  const editionNote =
+    edition === "first" && shadowless
+      ? "First print run. No drop shadow."
+      : edition === "first"
+        ? "First print run."
+        : edition === "shadowless"
+          ? "No Edition 1 stamp, and no drop shadow."
+          : edition === "unlimited"
+            ? "Later print run."
+            : "";
   const finishNote =
     finish === "reverse"
       ? stamped

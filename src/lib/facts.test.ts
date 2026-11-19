@@ -58,6 +58,9 @@ test("unlimited covers the stamp on the hires scan and 1st edition keeps it", ()
   assert.equal(shownPicture([unlimited, first], "unlimited", "normal", small, large), `/api/image?src=${encodeURIComponent(large)}&cover=stamp`);
   assert.equal(shownPicture([unlimited, first], "1stEdition", "normal", small, large), large);
   assert.equal(shownPicture([unlimited], "unlimited", "normal", "https://images.example/plain.png", ""), "https://images.example/plain.png");
+  const base = "https://images.pokemontcg.io/base1/4_hires.png";
+  assert.equal(shownPicture([], "unlimitedShadowlessHolofoil", "holo", base, base), `/api/image?src=${encodeURIComponent(base)}&cover=stamp`);
+  assert.equal(shownPicture([], "firstEditionShadowlessHolofoil", "holo", base, base), base);
 });
 
 test("a holo printing uses the hires scan when the variant has no photo of its own", () => {

@@ -11,7 +11,9 @@ const VARIANT_LABELS: Record<string, string> = {
   firstEditionHolofoil: "1st edition holo",
   firstEditionNormal: "1st edition non-holo",
   firstEditionShadowlessHolofoil: "1st edition shadowless",
+  firstEditionShadowless: "1st edition shadowless",
   unlimitedShadowlessHolofoil: "Unlimited shadowless",
+  unlimitedShadowless: "Unlimited shadowless",
 };
 
 const FINISH_ORDER = ["normal", "holofoil", "reverseHolofoil"];
@@ -37,10 +39,16 @@ export function reverseStamp(setId: string | null | undefined): string {
 
 export function editionOf(key: string | null | undefined): Edition | null {
   if (!key) return null;
-  if (/shadowless/i.test(key)) return "shadowless";
+  // 1st edition Base Set is shadowless, and the key names both. It is still the first print run.
   if (/1st|first/i.test(key)) return "first";
+  if (/shadowless/i.test(key)) return "shadowless";
   if (/unlimited/i.test(key)) return "unlimited";
   return null;
+}
+
+export function coversEditionStamp(key: string | null | undefined): boolean {
+  const edition = editionOf(key);
+  return edition === "unlimited" || edition === "shadowless";
 }
 
 export function finishOf(key: string | null | undefined): Finish | null {

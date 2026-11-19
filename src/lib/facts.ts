@@ -1,4 +1,4 @@
-import { editionOf, finishOf, variantLabel, withoutGenericEditions, type Edition, type Finish } from "./format";
+import { coversEditionStamp, editionOf, finishOf, variantLabel, withoutGenericEditions, type Edition, type Finish } from "./format";
 import type { EuroSales, PriceQuote, PublicCard, VariantQuote } from "./types";
 
 export function pickFinish(finish: Finish, variants: VariantQuote[]): VariantQuote | null {
@@ -32,7 +32,7 @@ export function shownPicture(variants: VariantQuote[], activeKey: string | null,
   // Both catalog sizes are usually the 1st edition photo. 1st edition
   // keeps that scan. Unlimited uses the same sharp photo with the stamp covered.
   if (edition === "first") return large || small;
-  if (edition === "unlimited") return unlimitedPicture(large || small);
+  if (coversEditionStamp(activeKey)) return unlimitedPicture(large || small);
   const current = activeKey ? variants.find((variant) => variant.key === activeKey) : undefined;
   if (current?.image) return current.image;
   if (finish === "reverse") {

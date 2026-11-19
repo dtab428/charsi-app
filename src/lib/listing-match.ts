@@ -5,7 +5,8 @@ import { editionOf, finishOf, type Edition } from "./format";
 export function editionClause(edition: Edition | null): string {
   if (edition === "first") return "1st -unlimited -unl";
   if (edition === "unlimited") return "Unlimited -1st -shadowless";
-  if (edition === "shadowless") return "shadowless -unlimited -unl";
+  // Unlimited shadowless is the shadowless printing that is not 1st edition, so the word unlimited stays.
+  if (edition === "shadowless") return "shadowless -1st -first";
   return "";
 }
 
@@ -38,7 +39,7 @@ export function listingMatchesPrinting(title: string, printing: string | null | 
   const finish = finishOf(printing);
   if (edition === "first" && (!saysFirst(title) || saysUnlimited(title))) return false;
   if (edition === "unlimited" && (!saysUnlimited(title) || saysFirst(title) || saysShadowless(title))) return false;
-  if (edition === "shadowless" && (!saysShadowless(title) || saysUnlimited(title))) return false;
+  if (edition === "shadowless" && (!saysShadowless(title) || saysFirst(title))) return false;
   if (finish === "reverse" && !saysReverse(title)) return false;
   if (finish === "holo" && (saysReverse(title) || saysNonHolo(title))) return false;
   if (finish === "normal" && (saysReverse(title) || saysHolo(title))) return false;

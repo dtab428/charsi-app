@@ -13,6 +13,12 @@ const PRINTING: Record<string, string> = {
   unlimited: "Unlimited",
   unlimitedHolofoil: "Unlimited Holofoil",
   "unlimited-holo": "Unlimited Holofoil",
+  firstEditionShadowlessHolofoil: "1st Edition Holofoil",
+  "first-edition-shadowless-holo": "1st Edition Holofoil",
+  firstEditionShadowless: "1st Edition",
+  unlimitedShadowlessHolofoil: "Unlimited Holofoil",
+  "unlimited-shadowless-holo": "Unlimited Holofoil",
+  unlimitedShadowless: "Unlimited",
 };
 
 type Hit = { at: number; amount: number | null };
