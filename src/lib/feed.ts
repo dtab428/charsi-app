@@ -2,13 +2,14 @@ import { pickVariant, saleAverages } from "./facts";
 import { endsLabel, listedLabel, money, quoteDate } from "./format";
 import { affiliateUrl, altSearchUrl, cardmarketSearchUrl, fanaticsSearchUrl, ebaySearchUrl, facebookSearchUrl, finishTerm, goldinSearchUrl, httpsHref, tcgplayerProductUrl, tcgplayerSearchUrl, type Grading } from "./links";
 import type { Listing, ListingLane, Pin, PriceQuote, PublicCard } from "./types";
+import { isWear, WEAR_LABEL, type Wear } from "./wear";
 
 export type MoneyFormat = (amount: number | null | undefined, currency: string) => string;
 
 export type SourceFilter = "all" | "tcgplayer" | "cardmarket" | "ebay";
 export type Company = "PSA" | "BGS" | "CGC" | "TAG" | "SGC";
 export type Condition = "raw" | Company;
-export type Filters = { source: SourceFilter; condition: Condition; grade: string };
+export type Filters = { source: SourceFilter; condition: Condition; grade: string; wear: Wear };
 
 export const COMPANIES: Company[] = ["PSA", "BGS", "CGC", "TAG", "SGC"];
 const WHOLE = ["10", "9", "8", "7", "6", "5", "4", "3", "2", "1"];
@@ -20,7 +21,7 @@ export const GRADES: Record<Company, string[]> = {
   TAG: HALVES,
   SGC: HALVES,
 };
-export const DEFAULT_FILTERS: Filters = { source: "all", condition: "raw", grade: "10" };
+export const DEFAULT_FILTERS: Filters = { source: "all", condition: "raw", grade: "10", wear: "NM" };
 
 export type FeedSource = "tcgplayer" | "cardmarket" | "ebay" | "scrydex" | "pin";
 
@@ -88,7 +89,7 @@ function listingRow(listing: Listing, kind: "auction" | "bin", index: number, sh
   };
 }
 
-function laneLinkRow(card: PublicCard, lane: ListingLane, kind: "auction" | "bin", grading: Grading | null, order: number, finish = ""): FeedRow {
+function laneLinkRow(card: PublicCard, lane: ListingLane, kind: "auction" | "bin", grading: Grading | null, order: number, finish = "", wear?: Wear): FeedRow {
   const graded = grading ? ` · ${grading.company} ${grading.grade}` : "";
   let sub = kind === "auction" ? "Ending soonest first" : "Newest listings first";
   if (!grading) {
@@ -103,7 +104,7 @@ function laneLinkRow(card: PublicCard, lane: ListingLane, kind: "auction" | "bin
     sub,
     value: "Open eBay",
     when: null,
-    href: grading || finish ? ebaySearchUrl(card, kind, grading, finish) : lane.searchUrl || ebaySearchUrl(card, kind),
+    href: grading || finish || wear ? ebaySearchUrl(card, kind, grading, finish, wear) : lane.searchUrl || ebaySearchUrl(card, kind),
     link: true,
     at: 0,
     order,
@@ -112,7 +113,7 @@ function laneLinkRow(card: PublicCard, lane: ListingLane, kind: "auction" | "bin
 
 function marketSub(variant: { label: string; low: number | null; high: number | null; currency: string }, show: MoneyFormat): string {
   const range = variant.low != null && variant.high != null ? ` Listings ${show(variant.low, variant.currency)}–${show(variant.high, variant.currency)}.` : "";
-  return `${variant.label} · sales market, not the Near Mint ask.${range}`;
+  return `${variant.label} · Near Mint sales market.${range}`;
 }
 
 export function buildFeed(input: {
@@ -125,6 +126,7 @@ export function buildFeed(input: {
   pin: Pin;
   filters: Filters;
   format?: MoneyFormat;
+  ask?: number | null;
 }): Feed {
   const { card, modifiers, quote, variantKey, auctions, buyNow, pin, filters } = input;
   const show = input.format ?? money;
@@ -136,9 +138,11 @@ export function buildFeed(input: {
   const averages = filters.source === "cardmarket" ? ended : more;
 
   if (filters.condition === "raw") {
+    const wear: Wear = isWear(filters.wear) ? filters.wear : "NM";
     const variant = quote?.variants.find((entry) => entry.key === variantKey) ?? pickVariant(modifiers, quote?.variants ?? []);
     const marketSource: FeedSource = quote?.source === "scrydex" ? "scrydex" : "tcgplayer";
-    const marketHref = affiliateUrl(tcgplayerProductUrl(httpsHref(variant?.productUrl ?? quote?.productUrl, tcgplayerSearchUrl(card)), variant?.key));
+    const marketHref = affiliateUrl(tcgplayerProductUrl(httpsHref(variant?.productUrl ?? quote?.productUrl, tcgplayerSearchUrl(card)), variant?.key, wear));
+    const nearMintHref = affiliateUrl(tcgplayerProductUrl(httpsHref(variant?.productUrl ?? quote?.productUrl, tcgplayerSearchUrl(card)), variant?.key, "NM"));
     const cardmarketHref = httpsHref(quote?.cardmarket?.url, cardmarketSearchUrl(card));
     const sales = saleAverages(quote, variant);
 
@@ -150,14 +154,14 @@ export function buildFeed(input: {
         sub: "Ended recently, newest first",
         value: "Open eBay",
         when: null,
-        href: ebaySearchUrl(card, "sold", null, finishTerm(variant?.key)),
+        href: ebaySearchUrl(card, "sold", null, finishTerm(variant?.key), wear),
         link: true,
         at: TOP,
         order: 0,
       });
     }
 
-    if (variant && keep(marketSource)) {
+    if (variant && keep(marketSource) && wear === "NM") {
       const stamped = quoteDate(quote?.updatedAt);
       ended.push({
         id: "market",
@@ -180,6 +184,51 @@ export function buildFeed(input: {
           value: `${show(variant.low, variant.currency)} – ${show(variant.high, variant.currency)}`,
           when: null,
           href: marketHref,
+          link: false,
+          at: 0,
+          order: 0,
+        });
+      }
+    } else if (keep(marketSource) && wear !== "NM") {
+      const label = WEAR_LABEL[wear];
+      if (input.ask === undefined) {
+        /* the page is still asking TCGplayer for this condition */
+      } else if (input.ask == null) {
+        ended.push({
+          id: "ask-missing",
+          source: marketSource,
+          label: `${label} ask`,
+          sub: `No ${label} listing came back for this printing.`,
+          value: "Open TCGplayer",
+          when: null,
+          href: marketHref,
+          link: true,
+          at: 0,
+          order: 0,
+        });
+      } else {
+        ended.push({
+          id: "ask",
+          source: marketSource,
+          label: `${label} ask`,
+          sub: `${variant?.label ?? "This printing"} · lowest TCGplayer listing.`,
+          value: show(input.ask, "USD"),
+          when: null,
+          href: marketHref,
+          link: false,
+          at: 0,
+          order: 0,
+        });
+      }
+      if (variant?.market != null) {
+        more.push({
+          id: "nm-market",
+          source: marketSource,
+          label: "Near Mint market",
+          sub: `${variant.label} · Near Mint sales market, kept beside this condition.`,
+          value: show(variant.market, variant.currency),
+          when: null,
+          href: nearMintHref,
           link: false,
           at: 0,
           order: 0,
@@ -251,8 +300,13 @@ export function buildFeed(input: {
       const auctionRows = auctions.status === "live" ? auctions.listings.map((listing, index) => listingRow(listing, "auction", index, show)).sort((a, b) => a.at - b.at) : [];
       const binRows = buyNow.status === "live" ? buyNow.listings.map((listing, index) => listingRow(listing, "bin", index, show)).sort((a, b) => b.at - a.at) : [];
       const asked = finishTerm(variant?.key);
-      live.push(...(auctionRows.length > 0 ? auctionRows : [laneLinkRow(card, auctions, "auction", null, 0, asked)]));
-      live.push(...(binRows.length > 0 ? binRows : [laneLinkRow(card, buyNow, "bin", null, 1, asked)]));
+      live.push(...(auctionRows.length > 0 ? auctionRows : [laneLinkRow(card, auctions, "auction", null, 0, asked, wear)]));
+      live.push(...(binRows.length > 0 ? binRows : [laneLinkRow(card, buyNow, "bin", null, 1, asked, wear)]));
+      if (wear !== "NM") {
+        notice = wear === "DMG"
+          ? "eBay has no Damaged filter for Pokémon singles, so that link searches the word. Live eBay rows are not filtered by condition. The TCGplayer link opens Damaged."
+          : `Live eBay rows are not filtered by ${WEAR_LABEL[wear]}. The eBay link is.`;
+      }
     }
 
     if (filters.source === "all") {

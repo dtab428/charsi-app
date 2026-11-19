@@ -1,7 +1,10 @@
+import { asWear, isWear } from "./wear";
+
 const CARD = /^[a-z0-9][a-z0-9-]{1,48}$/i;
 const PRINTING = /^[a-z0-9-]{1,40}$/;
 const CONDITION = /^(raw|[a-z]{2,4})$/i;
 const GRADE = /^[0-9]{1,2}(\.5)?$/;
+
 const SOURCES = ["tcgplayer", "cardmarket", "ebay"];
 
 export type LineShare = {
@@ -10,14 +13,15 @@ export type LineShare = {
   printing: string | null;
   condition: string | null;
   grade: string | null;
+  wear: string | null;
   off: boolean;
 };
 
-export type FilterShare = { source: string | null; condition: string | null; grade: string | null };
+export type FilterShare = { source: string | null; condition: string | null; grade: string | null; wear: string | null };
 
 export type DeskShare = { q: string; lines: LineShare[]; filters: FilterShare };
 
-export const EMPTY_LINE: LineShare = { removed: false, card: null, printing: null, condition: null, grade: null, off: false };
+export const EMPTY_LINE: LineShare = { removed: false, card: null, printing: null, condition: null, grade: null, wear: null, off: false };
 
 function clean(q: string): string {
   return q
@@ -28,14 +32,21 @@ function clean(q: string): string {
 
 function parseLine(token: string): LineShare {
   if (token === "-") return { ...EMPTY_LINE, removed: true };
-  const [card, printing, condition, grade, off] = token.split("_");
+  const parts = token.split("_");
+  let off = false;
+  if (parts[parts.length - 1] === "off") {
+    off = true;
+    parts.pop();
+  }
+  const [card, printing, condition, grade, wear] = parts;
   return {
     removed: false,
     card: card && CARD.test(card) ? card : null,
     printing: printing && PRINTING.test(printing) ? printing : null,
     condition: condition && CONDITION.test(condition) ? condition : null,
     grade: grade && GRADE.test(grade) ? grade : null,
-    off: off === "off",
+    wear: wear && isWear(wear) ? asWear(wear) : null,
+    off,
   };
 }
 
@@ -46,8 +57,10 @@ function lineToken(line: LineShare): string {
     line.card && line.printing && PRINTING.test(line.printing) ? line.printing : "",
     line.condition && CONDITION.test(line.condition) ? line.condition : "",
     line.condition && line.grade && GRADE.test(line.grade) ? line.grade : "",
-    line.off ? "off" : "",
   ];
+  const wear = line.wear && isWear(line.wear) && line.wear.toUpperCase() !== "NM" ? line.wear.toUpperCase() : "";
+  if (wear) parts.push(wear);
+  if (line.off) parts.push("off");
   while (parts.length && !parts[parts.length - 1]) parts.pop();
   return parts.join("_");
 }
@@ -72,6 +85,7 @@ export function deskShareFrom(search: string): DeskShare | null {
       source: source && SOURCES.includes(source) ? source : null,
       condition: condition && CONDITION.test(condition) ? condition : null,
       grade: grade && GRADE.test(grade) ? grade : null,
+      wear: isWear(params.get("wear")) ? asWear(params.get("wear")) : null,
     },
   };
 }
@@ -86,6 +100,8 @@ export function deskShareHref(q: string, lines: LineShare[] = [], filters: Parti
   if (filters.condition && CONDITION.test(filters.condition) && filters.condition.toLowerCase() !== "raw") {
     params.set("cond", filters.condition);
     if (filters.grade && GRADE.test(filters.grade)) params.set("grade", filters.grade);
+  } else if (filters.wear && isWear(filters.wear) && filters.wear.toUpperCase() !== "NM") {
+    params.set("wear", filters.wear.toUpperCase());
   }
   return `/?${params.toString()}`;
 }

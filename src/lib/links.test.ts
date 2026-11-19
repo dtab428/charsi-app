@@ -29,6 +29,16 @@ test("a TCGplayer product link opens that printing in Near Mint", () => {
   assert.equal(tcgplayerProductUrl("https://www.tcgplayer.com/search/pokemon/product?q=Gardevoir", "holofoil"), "https://www.tcgplayer.com/search/pokemon/product?q=Gardevoir");
 });
 
+test("a played raw link asks TCGplayer and eBay for that wear", () => {
+  const href = tcgplayerProductUrl("https://www.tcgplayer.com/product/85633/pokemon-ex-emerald-gardevoir", "reverseHolofoil", "LP");
+  assert.equal(href, "https://www.tcgplayer.com/product/85633/pokemon-ex-emerald-gardevoir?Printing=Reverse+Holofoil&page=1&Condition=Lightly+Played");
+  const ebay = ebaySearchUrl(umbreon, "bin", null, "holo", "HP");
+  assert.equal(ebay.includes("Card%2520Condition=Heavily%2520Played%2520%2528Poor%2529"), true);
+  const damaged = ebaySearchUrl(umbreon, "sold", null, "", "DMG");
+  assert.equal(new URL(damaged).searchParams.get("_nkw")?.includes("damaged"), true);
+  assert.equal(damaged.includes("Card%2520Condition"), false);
+});
+
 test("a graded eBay search uses Graded, Grade, and Professional Grader", () => {
   const href = ebaySearchUrl(umbreon, "auction", { company: "PSA", grade: "7" });
   const url = new URL(href);

@@ -1,6 +1,6 @@
 import type { IndexedCatalog } from "./catalog";
 import { toPublic } from "./catalog";
-import { numbersEqual, parseList, type ParsedLine } from "./parse";
+import { normalize, numbersEqual, parseList, type ParsedLine } from "./parse";
 import type { CatalogCard, ResolveItem } from "./types";
 
 const MAX_LINES = 80;
@@ -280,10 +280,90 @@ function resolveLine(catalog: IndexedCatalog, line: ParsedLine): ResolveItem {
   };
 }
 
+const BULK = /^(?:please\s+)?(?:include|add|show|list|pull)\s+(?:me\s+)?(?:all|every)\b|^(?:all|every)\s+(?:the\s+|of\s+)?/;
+
+function numberRank(num: string): number {
+  const match = /(\d+)/.exec(num);
+  return match ? Number(match[1]) : 9999;
+}
+
+function expandBulk(catalog: IndexedCatalog, line: ParsedLine): ResolveItem[] | null {
+  const text = normalize(line.raw);
+  if (!BULK.test(text)) return null;
+  const stripped = text
+    .replace(/^(?:please\s+)?(?:include|add|show|list|pull)\s+(?:me\s+)?/, "")
+    .replace(/^(?:all|every)\s+(?:the\s+|of\s+)?/, "")
+    .replace(/\b(?:cards?|printings?|stamps?|from|for|in|of|the|set)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const inner = parseList(stripped)[0];
+  const blank = {
+    raw: line.raw,
+    quantity: 1,
+    modifiers: line.modifiers,
+    grading: line.grading,
+    finish: line.finish,
+    stampRead: line.stampRead,
+    corrections: [] as string[],
+  };
+  if (!inner) {
+    return [{ ...blank, status: "unmatched", confidence: 0, card: null, alternatives: [], notes: ["Name a card or a set after “include all”."] }];
+  }
+  const located = findSet(catalog, inner.tokens, inner.number);
+  const stampRead = inner.stampRead || /\bstamps?\b/.test(text);
+  const finish = stampRead && !inner.finish ? "reverse" : inner.finish;
+  let names = nameTokensOf(inner, located.consumed).filter((token) => !["stamp", "stamps", "stamped", "holo", "holos", "holofoil"].includes(token));
+  if (located.setIds.length > 0) names = names.filter((token) => token !== "ex");
+  const holoOnly = finish === "holo";
+  const pool = catalog.cards.filter((card) => {
+    if (located.setIds.length > 0 && !located.setIds.includes(card.set)) return false;
+    if (names.length > 0 && !names.every((token) => cardTokens(card).includes(token))) return false;
+    if (located.setIds.length === 0 && names.length === 0) return false;
+    if (holoOnly && (!/holo/i.test(card.rarity) || /reverse/i.test(card.rarity))) return false;
+    return true;
+  });
+  pool.sort((a, b) => numberRank(a.num) - numberRank(b.num) || a.name.localeCompare(b.name));
+  if (pool.length === 0) {
+    return [{ ...blank, modifiers: inner.modifiers, finish, stampRead, status: "unmatched", confidence: 0, card: null, alternatives: [], notes: ["That request didn’t match a set or a card name."] }];
+  }
+  const kept = pool.slice(0, MAX_LINES);
+  const label = holoOnly ? "holo cards" : stampRead || finish === "reverse" ? "reverse-holo printings" : "cards";
+  return kept.map((card, index) => ({
+    ...blank,
+    modifiers: inner.modifiers,
+    finish,
+    stampRead,
+    status: "matched" as const,
+    confidence: 1,
+    notes: [
+      `Included because you asked for every ${label}.`,
+      ...(pool.length > kept.length && index === kept.length - 1 ? [`Showing ${kept.length} of ${pool.length}. The list stops at ${MAX_LINES}.`] : []),
+    ],
+    card: toPublic(catalog, card),
+    alternatives: [],
+  }));
+}
+
 export function resolveText(catalog: IndexedCatalog, text: string): ResolveItem[] {
   const lines = parseList(text);
   if (lines.length > MAX_LINES) {
     throw new RangeError(`Keep a pull to ${MAX_LINES} cards.`);
   }
-  return lines.map((line) => resolveLine(catalog, line));
+  const items: ResolveItem[] = [];
+  for (const line of lines) {
+    const bulk = expandBulk(catalog, line);
+    if (bulk) {
+      const room = MAX_LINES - items.length;
+      if (room <= 0) break;
+      const slice = bulk.slice(0, room);
+      if (bulk.length > room) {
+        const last = slice[slice.length - 1];
+        if (last) last.notes = [...last.notes, `Showing ${items.length + slice.length} cards. The list stops at ${MAX_LINES}.`];
+      }
+      items.push(...slice);
+      continue;
+    }
+    items.push(resolveLine(catalog, line));
+  }
+  return items;
 }

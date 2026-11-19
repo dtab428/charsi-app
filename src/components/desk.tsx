@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { Board, type DeskItem, type View, type ZoomShot } from "@/components/board";
 import { CardPicture } from "@/components/card-picture";
@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { SiteHeader } from "@/components/account-menu";
 import { MarketFilters } from "@/components/market";
 import { COMPANIES, DEFAULT_FILTERS, GRADES, type Filters } from "@/lib/feed";
+import { asWear, isWear } from "@/lib/wear";
 import { keptAfterChoice, marketAmount, mergePrintings, printingFamily, resolveActive } from "@/lib/facts";
 import { printingSlug } from "@/lib/printing";
 import { deskShareFrom, deskShareHref, EMPTY_LINE, type DeskShare, type FilterShare, type LineShare } from "@/lib/share";
@@ -39,7 +40,8 @@ function validFilters(value: Filters | undefined): Filters {
   const source = ["all", "tcgplayer", "cardmarket", "ebay"].includes(value.source) ? value.source : "all";
   const condition = value.condition === "raw" || COMPANIES.includes(value.condition) ? value.condition : "raw";
   const grade = typeof value.grade === "string" && value.grade.length <= 4 ? value.grade : "10";
-  return { source, condition, grade };
+  const wear = isWear(value.wear) ? asWear(value.wear) : "NM";
+  return { source, condition, grade, wear: condition === "raw" ? wear : "NM" };
 }
 
 function filtersFromShare(shared: FilterShare): Filters {
@@ -48,16 +50,17 @@ function filtersFromShare(shared: FilterShare): Filters {
     source: (shared.source ?? "all") as Filters["source"],
     condition: company ?? "raw",
     grade: company && shared.grade ? shared.grade : DEFAULT_FILTERS.grade,
+    wear: company ? "NM" : asWear(shared.wear),
   });
 }
 
 function viewFromShare(line: LineShare): View | null {
   if (!line.condition) return null;
-  if (line.condition.toLowerCase() === "raw") return { condition: "raw", grade: DEFAULT_FILTERS.grade };
+  if (line.condition.toLowerCase() === "raw") return { condition: "raw", grade: DEFAULT_FILTERS.grade, wear: asWear(line.wear) };
   const company = COMPANIES.find((entry) => entry === line.condition?.toUpperCase());
   if (!company) return null;
   const grade = line.grade && GRADES[company].includes(line.grade) ? line.grade : GRADES[company][0];
-  return { condition: company, grade };
+  return { condition: company, grade, wear: "NM" };
 }
 
 function shareOfFilters(filters: Filters): Partial<FilterShare> {
@@ -65,6 +68,7 @@ function shareOfFilters(filters: Filters): Partial<FilterShare> {
     source: filters.source === "all" ? null : filters.source,
     condition: filters.condition,
     grade: filters.grade,
+    wear: filters.condition === "raw" && filters.wear !== "NM" ? filters.wear : null,
   };
 }
 
@@ -78,6 +82,7 @@ function shareOfLines(items: DeskItem[], slots: number): LineShare[] {
       printing: item.picked ? printingSlug(item.picked) : null,
       condition: item.view?.condition ?? null,
       grade: item.view && item.view.condition !== "raw" ? item.view.grade : null,
+      wear: item.view?.condition === "raw" && item.view.wear !== "NM" ? item.view.wear : null,
       off: Boolean(item.card) && !item.included,
     };
   }
@@ -95,6 +100,7 @@ export function Desk() {
   const [columns, setColumns] = useState<1 | 2>(1);
   const [items, setItems] = useState<DeskItem[]>([]);
   const [pulling, setPulling] = useState(false);
+  const [listening, setListening] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [quotes, setQuotes] = useState<Record<string, PriceQuote | null>>({});
   const [quoteSource, setQuoteSource] = useState<string>("");
@@ -259,7 +265,10 @@ export function Desk() {
           const item = payload.item;
           setItems((current) => {
             if (current.length >= 80) return current;
-            return [...current, { ...item, key: crypto.randomUUID(), slot: -1, included: Boolean(item.card), picked: null, view: null }];
+            const notes = [...item.notes];
+            if (bands.spread) notes.push("This picture isn’t a single card front, so the read may have mixed several cards. Split them into one photo each if the line looks wrong.");
+            if (item.card && current.some((entry) => entry.card?.id === item.card?.id)) notes.push("This card is already on the desk. It stays as its own line.");
+            return [...current, { ...item, notes, key: crypto.randomUUID(), slot: -1, included: Boolean(item.card), picked: null, view: null }];
           });
           if (payload.line) {
             setText((current) => (current.trim() ? `${current.trim()}\n${payload.line}` : payload.line ?? ""));
@@ -415,10 +424,19 @@ export function Desk() {
   const onSheet = items.filter((item) => item.included && item.card).length;
   const worth = items.reduce((sum, item) => {
     if (!item.card) return sum;
+    const condition = item.view?.condition ?? filters.condition;
+    const wear = item.view?.wear ?? filters.wear;
+    if (condition === "raw" && wear !== "NM") return sum;
     const amount = marketAmount(item.modifiers, quotes[item.card.id], item.finish, item.picked);
     return amount == null ? sum : sum + amount * item.quantity;
   }, 0);
-  const priced = items.filter((item) => item.card && marketAmount(item.modifiers, quotes[item.card.id], item.finish, item.picked) != null).length;
+  const priced = items.filter((item) => {
+    if (!item.card) return false;
+    const condition = item.view?.condition ?? filters.condition;
+    const wear = item.view?.wear ?? filters.wear;
+    if (condition === "raw" && wear !== "NM") return false;
+    return marketAmount(item.modifiers, quotes[item.card.id], item.finish, item.picked) != null;
+  }).length;
   const listWorth = priced > 0 ? format(worth, "USD") : "";
   const skeletons = Math.min(8, Math.max(3, text.split(/\n|,/).filter((line) => line.trim()).length));
 
@@ -473,6 +491,7 @@ export function Desk() {
           </div>
           <Textarea
             value={text}
+            readOnly={listening}
             onChange={(event) => setText(event.target.value)}
             onKeyDown={(event) => {
               if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
@@ -496,6 +515,15 @@ export function Desk() {
             <Button type="button" variant="outline" disabled={reading > 0} onClick={() => photosRef.current?.click()}>
               {reading > 0 ? `Reading ${reading}…` : "Add photos"}
             </Button>
+            <VoiceButton
+              filled={Boolean(text.trim())}
+              busy={pulling}
+              onListening={setListening}
+              onText={(said) => {
+                setText(said);
+                void pull(said);
+              }}
+            />
             <input
               ref={photosRef}
               type="file"
@@ -509,7 +537,7 @@ export function Desk() {
               }}
             />
             <p className="max-w-xl text-sm text-[#241c14]/70">
-              Commas, new lines, or photos of the fronts. Drop one card or a handful. Partial names and typos are fine.
+              Commas, new lines, or photos of one card front. You can also ask for a whole group, such as “include all the holo cards from Team Rocket Returns”. Speak a list only while the box is empty.
             </p>
           </div>
         </section>
@@ -530,7 +558,7 @@ export function Desk() {
               <div>
                 <p className="font-serif text-2xl italic">
                   {matched} on the desk{picks ? ` · ${picks} ${picks === 1 ? "needs" : "need"} a pick` : ""}
-                  {listWorth ? ` · about ${listWorth} on TCGplayer` : ""}
+                  {listWorth ? ` · about ${listWorth} Near Mint on TCGplayer` : ""}
                 </p>
                 <p className="mt-1 max-w-2xl text-xs leading-relaxed text-[#b3a694]">
                   {quoteSource || "Pictures are ready. Quotes follow."}
@@ -635,5 +663,83 @@ export function Desk() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function emptySubscribe() {
+  return () => {};
+}
+
+function speechAvailable(): boolean {
+  const host = window as unknown as { SpeechRecognition?: new () => Ear; webkitSpeechRecognition?: new () => Ear };
+  return Boolean(host.SpeechRecognition || host.webkitSpeechRecognition);
+}
+
+type Heard = { results: ArrayLike<{ 0?: { transcript?: string } }> };
+
+type Ear = {
+  lang: string;
+  interimResults: boolean;
+  start: () => void;
+  stop: () => void;
+  onresult: ((event: Heard) => void) | null;
+  onend: (() => void) | null;
+  onerror: (() => void) | null;
+};
+
+function VoiceButton({
+  filled,
+  busy,
+  onListening,
+  onText,
+}: {
+  filled: boolean;
+  busy: boolean;
+  onListening: (listening: boolean) => void;
+  onText: (text: string) => void;
+}) {
+  const [listening, setListening] = useState(false);
+  const supported = useSyncExternalStore(emptySubscribe, speechAvailable, () => false);
+  const ear = useRef<Ear | null>(null);
+
+  function toggle() {
+    if (listening) {
+      ear.current?.stop();
+      return;
+    }
+    const host = window as unknown as { SpeechRecognition?: new () => Ear; webkitSpeechRecognition?: new () => Ear };
+    const Ctor = host.SpeechRecognition || host.webkitSpeechRecognition;
+    if (!Ctor || filled) return;
+    const recognition = new Ctor();
+    recognition.lang = "en-US";
+    recognition.interimResults = false;
+    recognition.onresult = (event) => {
+      const said = event.results[0]?.[0]?.transcript?.trim() ?? "";
+      if (said) onText(said);
+    };
+    recognition.onend = () => {
+      setListening(false);
+      onListening(false);
+    };
+    recognition.onerror = () => {
+      setListening(false);
+      onListening(false);
+    };
+    ear.current = recognition;
+    setListening(true);
+    onListening(true);
+    recognition.start();
+  }
+
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      disabled={!supported || filled || busy}
+      onClick={toggle}
+      title={supported ? (filled ? "Clear the list to speak" : "Speak a list") : "Voice input needs Chrome"}
+    >
+      {listening ? "Listening…" : "Speak a list"}
+    </Button>
   );
 }

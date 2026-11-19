@@ -1,4 +1,5 @@
 import type { ListingLane, PublicCard } from "./types";
+import { EBAY_WEAR, WEAR_LABEL, type Wear } from "./wear";
 
 // Nintendo Black Star Promos are "Nintendo Promos" on TCGplayer, and the
 // number on the card is 039, not the catalog's 39. Searching the catalog
@@ -34,9 +35,9 @@ const EBAY_GRADER: Record<string, string> = {
   TAG: "Technical Authentication & Grading (TAG)",
 };
 
-export function ebaySearchUrl(card: PublicCard, lane: "auction" | "bin" | "sold", grading?: Grading | null, finish?: string): string {
+export function ebaySearchUrl(card: PublicCard, lane: "auction" | "bin" | "sold", grading?: Grading | null, finish?: string, wear?: Wear | null): string {
   const url = new URL("https://www.ebay.com/sch/183454/i.html");
-  const parts = [searchPhrase(card), finish ?? ""];
+  const parts = [searchPhrase(card), finish ?? "", wear === "DMG" ? "damaged" : ""];
   url.searchParams.set("_nkw", parts.filter(Boolean).join(" "));
   url.searchParams.set("_sacat", "183454");
   if (lane === "auction") {
@@ -61,7 +62,10 @@ export function ebaySearchUrl(card: PublicCard, lane: "auction" | "bin" | "sold"
   // eBay emits the grader aspect double-encoded (Professional%2520Grader=…).
   // A normal query parameter is ignored, so the graded filter never turns on
   // and raw cards stay in the results. Append it after the other params.
-  const aspect = grader ? `&${ebayAspect("Professional Grader", grader)}` : "";
+  const cardCondition = !grader && wear ? EBAY_WEAR[wear] : undefined;
+  if (cardCondition) url.searchParams.set("rt", "nc");
+  const aspects = [grader ? ebayAspect("Professional Grader", grader) : "", cardCondition ? ebayAspect("Card Condition", cardCondition) : ""].filter(Boolean);
+  const aspect = aspects.length ? `&${aspects.join("&")}` : "";
   return affiliateUrl(`${url.toString()}${aspect}`);
 }
 
@@ -95,7 +99,7 @@ const TCG_PRINTING: Record<string, string> = {
 
 // A product page with no printing or condition selected mixes every copy.
 // Raw links open that printing in Near Mint, which is the condition the price is being compared with.
-export function tcgplayerProductUrl(href: string, variantKey: string | null | undefined): string {
+export function tcgplayerProductUrl(href: string, variantKey: string | null | undefined, wear: Wear = "NM"): string {
   let url: URL;
   try {
     url = new URL(href);
@@ -106,7 +110,7 @@ export function tcgplayerProductUrl(href: string, variantKey: string | null | un
   const printing = variantKey ? TCG_PRINTING[variantKey] : undefined;
   if (printing) url.searchParams.set("Printing", printing);
   url.searchParams.set("page", "1");
-  url.searchParams.set("Condition", "Near Mint");
+  url.searchParams.set("Condition", WEAR_LABEL[wear]);
   return url.toString();
 }
 

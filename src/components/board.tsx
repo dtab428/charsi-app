@@ -14,9 +14,10 @@ import { finishOf, reverseStamp, variantLabel, type Finish } from "@/lib/format"
 import { cardHref, printingSlug } from "@/lib/printing";
 import { COMPANIES, GRADES, type Company, type Filters } from "@/lib/feed";
 import { emptyLane } from "@/lib/links";
+import type { Wear } from "@/lib/wear";
 import type { ListingLane, Pin, PriceQuote, PublicCard, ResolveItem } from "@/lib/types";
 
-export type View = { condition: "raw" | Company; grade: string };
+export type View = { condition: "raw" | Company; grade: string; wear: Wear };
 
 export type ZoomShot = { card: PublicCard; src: string; finish: Finish | null; stamp: string; badge: boolean };
 
@@ -41,10 +42,10 @@ function typedView(grading: DeskItem["grading"]): View | null {
   const company = COMPANIES.find((entry) => entry === grading.company);
   if (!company) return null;
   const allowed = GRADES[company];
-  if (grading.grade === null) return { condition: company, grade: allowed[0] ?? "10" };
+  if (grading.grade === null) return { condition: company, grade: allowed[0] ?? "10", wear: "NM" };
   const wanted = Number(grading.grade);
   const nearest = allowed.includes(grading.grade) ? grading.grade : allowed.slice().sort((a, b) => Math.abs(Number(a) - wanted) - Math.abs(Number(b) - wanted))[0];
-  return { condition: company, grade: nearest ?? "10" };
+  return { condition: company, grade: nearest ?? "10", wear: "NM" };
 }
 
 function Face({
@@ -168,15 +169,15 @@ function CardDesk({
   );
   const loaded = family.length > 0 && family.every((member) => quotes[member.id] !== undefined);
   const [useTyped, setUseTyped] = useState(true);
-  const seen = useRef(`${filters.condition}-${filters.grade}`);
+  const seen = useRef(`${filters.condition}-${filters.grade}-${filters.wear}`);
   useEffect(() => {
-    const now = `${filters.condition}-${filters.grade}`;
+    const now = `${filters.condition}-${filters.grade}-${filters.wear}`;
     if (seen.current === now) return;
     seen.current = now;
     setUseTyped(false);
-  }, [filters.condition, filters.grade]);
-  const view = item.view ?? (useTyped ? typedView(item.grading) : null) ?? { condition: filters.condition, grade: filters.grade };
-  const cardFilters: Filters = { ...filters, condition: view.condition, grade: view.grade };
+  }, [filters.condition, filters.grade, filters.wear]);
+  const view = item.view ?? (useTyped ? typedView(item.grading) : null) ?? { condition: filters.condition, grade: filters.grade, wear: filters.wear };
+  const cardFilters: Filters = { ...filters, condition: view.condition, grade: view.grade, wear: view.wear };
   const active = resolveActive({ finish: item.finish, modifiers: item.modifiers, variants: printings, pickedKey, loaded });
   const activeKey = active.key;
   const shown = family.find((member) => member.id === (active.cardId ?? card?.id)) ?? card;
@@ -288,7 +289,14 @@ function CardDesk({
           {shown && !hold ? (
             <div>
               <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-white/10 bg-black/20 p-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-8">
-                <ConditionControls label="This card" condition={view.condition} grade={view.grade} onChange={(condition, grade) => onView(item.key, { condition, grade })} />
+                <ConditionControls
+                  label="This card"
+                  condition={view.condition}
+                  grade={view.grade}
+                  wear={view.wear}
+                  onChange={(condition, grade) => onView(item.key, { condition, grade, wear: condition === "raw" ? view.wear : "NM" })}
+                  onWear={(wear) => onView(item.key, { condition: "raw", grade: view.grade, wear })}
+                />
               </div>
               {auctions && buyNow ? (
                 <CardMarket

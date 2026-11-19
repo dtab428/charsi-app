@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Pressable } from "@/components/ui/ripple";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCurrency } from "@/components/currency";
 import { buildFeed, COMPANIES, GRADES, type Company, type FeedRow, type FeedSource, type Filters, type SourceFilter } from "@/lib/feed";
+import { WEAR_LABEL, WEARS, type Wear } from "@/lib/wear";
 import { cardHref, printingSlug } from "@/lib/printing";
 import type { ListingLane, Pin, PriceQuote, PublicCard } from "@/lib/types";
 
@@ -53,12 +54,16 @@ function Group({ label, children }: { label: string; children: ReactNode }) {
 export function ConditionControls({
   condition,
   grade,
+  wear = "NM",
   onChange,
+  onWear,
   label = "Condition",
 }: {
   condition: "raw" | Company;
   grade: string;
+  wear?: Wear;
   onChange: (condition: "raw" | Company, grade: string) => void;
+  onWear?: (wear: Wear) => void;
   label?: string;
 }) {
   const grades = condition === "raw" ? [] : GRADES[condition];
@@ -82,6 +87,15 @@ export function ConditionControls({
           </Chip>
         ))}
       </Group>
+      {condition === "raw" && onWear ? (
+        <Group label="Wear">
+          {WEARS.map((entry) => (
+            <Chip key={entry} active={wear === entry} onClick={() => onWear(entry)}>
+              {WEAR_LABEL[entry]}
+            </Chip>
+          ))}
+        </Group>
+      ) : null}
       {grades.length > 0 ? (
         <Group label="Grade">
           {grades.map((entry) => (
@@ -105,7 +119,14 @@ export function MarketFilters({ filters, onChange, conditionLabel = "All cards" 
           </Chip>
         ))}
       </Group>
-      <ConditionControls label={conditionLabel} condition={filters.condition} grade={filters.grade} onChange={(condition, grade) => onChange({ ...filters, condition, grade })} />
+      <ConditionControls
+        label={conditionLabel}
+        condition={filters.condition}
+        grade={filters.grade}
+        wear={filters.wear}
+        onChange={(condition, grade) => onChange({ ...filters, condition, grade, wear: condition === "raw" ? filters.wear : "NM" })}
+        onWear={(wear) => onChange({ ...filters, condition: "raw", wear })}
+      />
     </div>
   );
 }
@@ -139,6 +160,11 @@ function RowView({ row }: { row: FeedRow }) {
     );
   }
   return <div className={shell}>{body}</div>;
+}
+
+function productIdOf(url: string | null | undefined): number | null {
+  const match = /\/product\/(\d+)/.exec(url ?? "");
+  return match ? Number(match[1]) : null;
 }
 
 function Section({ title, rows }: { title: string; rows: FeedRow[] }) {
@@ -180,7 +206,7 @@ function PinEditor({ pin, onPin }: { pin: Pin; onPin: (pin: Pin) => void }) {
         <Input value={pin.note} onChange={(event) => onPin({ ...pin, note: event.target.value.slice(0, 80) })} placeholder="What they said" aria-label="What they said" />
       </div>
       <div className="mt-2 flex items-center justify-between gap-2">
-        <p className="text-[11px] text-[#b3a694]">Typed by hand and cleared on reload. Charsi doesn’t read Marketplace or Discord yet.</p>
+        <p className="text-[11px] text-[#b3a694]">Typed by hand and cleared on reload. Public trade posts are on the Trades page.</p>
         <Button type="button" size="sm" variant="secondary" onClick={() => setOpen(false)}>
           Done
         </Button>
@@ -216,9 +242,37 @@ export function CardMarket({
 }) {
   const [showMore, setShowMore] = useState(false);
   const { format } = useCurrency();
+  const wear = filters.wear ?? "NM";
+  const productUrl = quote?.variants.find((entry) => entry.key === variantKey)?.productUrl ?? quote?.productUrl;
+  const productId = productIdOf(productUrl);
+  const askKey = `${productId ?? ""}:${variantKey ?? ""}:${wear}`;
+  const [askState, setAskState] = useState<{ key: string; amount: number | null } | null>(null);
+  const needsAsk = filters.condition === "raw" && wear !== "NM" && productId != null;
+
+  useEffect(() => {
+    if (!needsAsk || productId == null) return;
+    let live = true;
+    fetch("/api/asks", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ productId, name: card.name, setName: card.setName, number: card.number, printing: variantKey, wear }),
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload: { amount?: number | null } | null) => {
+        if (live) setAskState({ key: askKey, amount: typeof payload?.amount === "number" ? payload.amount : null });
+      })
+      .catch(() => {
+        if (live) setAskState({ key: askKey, amount: null });
+      });
+    return () => {
+      live = false;
+    };
+  }, [needsAsk, productId, card.name, card.setName, card.number, variantKey, wear, askKey]);
+
+  const ask = !needsAsk ? null : askState?.key === askKey ? askState.amount : undefined;
   const feed = useMemo(
-    () => buildFeed({ card, modifiers, quote, variantKey, auctions, buyNow, pin, filters, format }),
-    [card, modifiers, quote, variantKey, auctions, buyNow, pin, filters, format],
+    () => buildFeed({ card, modifiers, quote, variantKey, auctions, buyNow, pin, filters, format, ask }),
+    [card, modifiers, quote, variantKey, auctions, buyNow, pin, filters, format, ask],
   );
 
 
@@ -241,6 +295,7 @@ export function CardMarket({
           </Pressable>
         </div>
       ) : null}
+      {needsAsk && ask === undefined ? <Skeleton className="h-[3.4rem] w-full rounded-xl bg-white/10" aria-label="Loading condition price" /> : null}
       <div className="grid items-start gap-4 lg:grid-cols-2">
         <Section title="Ended recently" rows={feed.ended} />
         <Section title="Live now" rows={feed.live} />

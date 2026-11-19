@@ -111,6 +111,25 @@ test("leaves the printing open when it is not stated", () => {
   assert.equal(item.grading, null);
 });
 
+test("include all expands a set, a finish, and a name", () => {
+  const holos = resolveText(catalog, "include all the holo cards from team rocket returns");
+  assert.ok(holos.length > 5);
+  assert.ok(holos.every((item) => item.card?.setId === holos[0]?.card?.setId));
+  assert.ok(holos.every((item) => /holo/i.test(item.card?.rarity ?? "")));
+  assert.equal(holos[0]?.finish, "holo");
+
+  const stamps = resolveText(catalog, "include all reverse holo stamps for ex emerald set");
+  assert.ok(stamps.length > 20);
+  assert.ok(stamps.every((item) => item.card?.setId === "ex9"));
+  assert.equal(stamps[0]?.finish, "reverse");
+  assert.equal(stamps[0]?.stampRead, true);
+
+  const groudon = resolveText(catalog, "include all groudon cards");
+  assert.ok(groudon.length > 5);
+  assert.ok(groudon.length <= 80);
+  assert.ok(groudon.every((item) => item.card?.name.toLowerCase().includes("groudon")));
+});
+
 test("Tag Team is not a grader and 9.5 stays a grade", () => {
   const team = one("Pikachu & Zekrom Tag Team GX");
   assert.equal(team.grading, null);

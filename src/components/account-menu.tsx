@@ -94,6 +94,9 @@ export function AccountMenu() {
   return (
     <div className="flex flex-wrap items-center gap-2">
       <CurrencySelect />
+      <Pressable href="/trades" sameTab className="inline-flex h-8 items-center rounded-full border border-white/15 px-3 text-sm hover:bg-white/10">
+        Trades
+      </Pressable>
       <Pressable href="/collection" sameTab className="inline-flex h-8 items-center rounded-full border border-white/15 px-3 text-sm hover:bg-white/10">
         My Collection
       </Pressable>

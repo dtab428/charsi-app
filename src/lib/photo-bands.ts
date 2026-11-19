@@ -39,12 +39,18 @@ function prepare(image: ImageBitmap, box: Box, targetWidth: number, contrast: bo
   });
 }
 
-export async function cardBands(file: File): Promise<{ name: Blob; number: Blob }> {
+export function singleCardFrame(width: number, height: number): boolean {
+  if (width < 1 || height < 1) return false;
+  const ratio = width / height;
+  return ratio > 0.55 && ratio < 0.92;
+}
+
+export async function cardBands(file: File): Promise<{ name: Blob; number: Blob; spread: boolean }> {
   const image = await createImageBitmap(file);
   try {
     const name = await prepare(image, { x: 0.04, y: 0.03, w: 0.89, h: 0.09 }, 1400, false);
     const number = await prepare(image, { x: 0, y: 0.93, w: 1, h: 0.07 }, 1400, true);
-    return { name, number };
+    return { name, number, spread: !singleCardFrame(image.width, image.height) };
   } finally {
     image.close();
   }
