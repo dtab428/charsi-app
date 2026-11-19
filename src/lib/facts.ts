@@ -21,7 +21,13 @@ export function shownPicture(variants: VariantQuote[], activeKey: string | null,
   if (finish === "reverse") {
     const holo = variants.find((variant) => finishOf(variant.key) === "holo" && variant.image);
     if (holo?.image) return holo.image;
+    // Reverse foil sits around the holo artwork.
+    return large || small;
   }
+  // On a lot of older holos the small scan is the flat art and the hires
+  // scan is the holo photo. When they are the same picture, the hires is
+  // just sharper.
+  if (finish === "holo") return large || small;
   return small || large;
 }
 

@@ -341,6 +341,12 @@ async function assignFinishImages(ids: string[], source: Map<string, PriceQuote 
       const card = catalog.cards.find((entry) => entry.id === id);
       const set = card ? catalog.sets.get(card.set) : undefined;
       if (!quote || !card || !set) return;
+      for (const variant of quote.variants) {
+        if (variant.image) continue;
+        const finish = finishOf(variant.key);
+        if (finish === "holo") variant.image = card.large || card.small || null;
+        if (finish === "normal") variant.image = card.small || card.large || null;
+      }
       const holo = quote.variants.find((variant) => finishOf(variant.key) === "holo" && variant.image);
       const holoImage = holo?.image || (/holo/i.test(card.rarity) ? card.large || card.small : "");
       const reverse = quote.variants.find((variant) => finishOf(variant.key) === "reverse");

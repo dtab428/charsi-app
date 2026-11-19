@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { keptAfterChoice, mergePrintings, resolveActive } from "./facts";
+import { keptAfterChoice, mergePrintings, resolveActive, shownPicture } from "./facts";
 import { preferPricedVariants } from "./prices";
 import type { PriceQuote, PublicCard } from "./types";
 import { finishOf, reverseStamp, variantLabel, withoutGenericEditions } from "./format";
@@ -19,6 +19,17 @@ const fossil = [
   variant("unlimited", 40),
   variant("normal"),
 ];
+
+test("a holo printing uses the hires scan when the variant has no photo of its own", () => {
+  const flat = "https://images.example/small.png";
+  const holo = "https://images.example/hires.png";
+  const variants = [variant("normal"), variant("holofoil"), variant("reverseHolofoil")];
+  assert.equal(shownPicture(variants, "holofoil", "holo", flat, holo), holo);
+  assert.equal(shownPicture(variants, "normal", "normal", flat, holo), flat);
+  assert.equal(shownPicture(variants, "reverseHolofoil", "reverse", flat, holo), holo);
+  variants[1].image = "https://images.example/own.png";
+  assert.equal(shownPicture(variants, "holofoil", "holo", flat, holo), "https://images.example/own.png");
+});
 
 test("choosing one card drops the other prompt matches and keeps its printings", () => {
   const card = (id: string, setId: string, name: string) => ({ id, setId, name }) as PublicCard;
