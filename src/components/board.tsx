@@ -10,7 +10,7 @@ import { PrintingPicker } from "@/components/printing-picker";
 import { Pressable } from "@/components/ui/ripple";
 import { useEffect, useRef, useState } from "react";
 import { mergePrintings, printingFamily, resolveActive, shownPicture } from "@/lib/facts";
-import { finishOf, reverseStamp, variantLabel, type Finish } from "@/lib/format";
+import { finishOf, releaseYear, reverseStamp, variantLabel, type Finish } from "@/lib/format";
 import { cardHref, printingSlug } from "@/lib/printing";
 import { COMPANIES, GRADES, type Company, type Filters } from "@/lib/feed";
 import { emptyLane } from "@/lib/links";
@@ -27,7 +27,8 @@ const emptyPin: Pin = { source: "discord", price: "", note: "" };
 
 function printed(card: PublicCard): string {
   const number = card.printedTotal ? `${card.number}/${card.printedTotal}` : card.number;
-  return `${card.setName} · ${number}`;
+  const year = releaseYear(card.releaseDate);
+  return [card.setName, year, number].filter(Boolean).join(" · ");
 }
 
 function legal(card: PublicCard): string {
@@ -223,7 +224,7 @@ function CardDesk({
             </div>
             {shown ? (
               <p className="mt-1 text-xs text-[#b3a694]">
-                {asking ? `${shown.setName} · which printing?` : `${printed(shown)} · ${printings.length > 1 && activeKey ? variantLabel(activeKey) : shown.rarity}`}
+                {asking ? `${printed(shown)} · which printing?` : `${printed(shown)} · ${printings.length > 1 && activeKey ? variantLabel(activeKey) : shown.rarity}`}
               </p>
             ) : null}
           </div>

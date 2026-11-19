@@ -13,7 +13,7 @@ import { PriceChart, type ChartPoint } from "@/components/price-chart";
 import { PrintingPicker } from "@/components/printing-picker";
 import { mergePrintings, resolveActive, saleAverages, shownPicture } from "@/lib/facts";
 import { DEFAULT_FILTERS, type Filters } from "@/lib/feed";
-import { finishOf, reverseStamp, quoteDate, variantLabel } from "@/lib/format";
+import { finishOf, releaseYear, reverseStamp, quoteDate, variantLabel } from "@/lib/format";
 import { emptyLane } from "@/lib/links";
 import { cardHref, findPrinting, printingSlug } from "@/lib/printing";
 import type { Snapshot } from "@/lib/history";
@@ -177,8 +177,8 @@ export function CardPage({ card, printing, siblings = [] }: { card: PublicCard; 
                 <h1 className="font-serif text-4xl leading-none tracking-tight sm:text-5xl">{card.name}</h1>
                 <p className="mt-2 text-sm text-[#b3a694]">
                   {asking
-                    ? `${card.setName} · which printing?`
-                    : `${card.setName} · ${card.printedTotal ? `${card.number}/${card.printedTotal}` : card.number}${variants.length > 1 && selected ? ` · ${variantLabel(selected.key)}` : ""}`}
+                    ? `${[card.setName, releaseYear(card.releaseDate)].filter(Boolean).join(" · ")} · which printing?`
+                    : `${[card.setName, releaseYear(card.releaseDate), card.printedTotal ? `${card.number}/${card.printedTotal}` : card.number].filter(Boolean).join(" · ")}${variants.length > 1 && selected ? ` · ${variantLabel(selected.key)}` : ""}`}
                 </p>
               </div>
               <HoldingToggles cardId={card.id} printing={activeKey ? printingSlug(activeKey) : null} condition={filters.condition} grade={filters.grade} labeled />

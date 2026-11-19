@@ -16,6 +16,11 @@ const VARIANT_LABELS: Record<string, string> = {
 
 const FINISH_ORDER = ["normal", "holofoil", "reverseHolofoil"];
 
+export function releaseYear(releaseDate: string | null | undefined): string {
+  const match = /^(\d{4})/.exec(releaseDate ?? "");
+  return match?.[1] ?? "";
+}
+
 export function finishRank(key: string): number {
   const index = FINISH_ORDER.indexOf(key);
   return index === -1 ? FINISH_ORDER.length : index;
