@@ -1,4 +1,4 @@
-import { editionOf, finishOf, withoutGenericEditions, type Edition, type Finish } from "./format";
+import { editionOf, finishOf, variantLabel, withoutGenericEditions, type Edition, type Finish } from "./format";
 import type { EuroSales, PriceQuote, PublicCard, VariantQuote } from "./types";
 
 export function pickFinish(finish: Finish, variants: VariantQuote[]): VariantQuote | null {
@@ -16,6 +16,11 @@ function askedEdition(modifiers: string[]): Edition | null {
 }
 
 export function shownPicture(variants: VariantQuote[], activeKey: string | null, finish: Finish | null, small: string, large: string): string {
+  const edition = editionOf(activeKey);
+  // On a lot of older sets the hires scan is the 1st-edition copy and the
+  // smaller scan is the unlimited copy.
+  if (edition === "first") return large || small;
+  if (edition === "unlimited") return small || large;
   const current = activeKey ? variants.find((variant) => variant.key === activeKey) : undefined;
   if (current?.image) return current.image;
   if (finish === "reverse") {
@@ -42,10 +47,48 @@ export function keptAfterChoice(previous: PublicCard | null, alternatives: Publi
   });
 }
 
-export function printingFamily<T extends { id: string; setId: string; name: string }>(card: T, alternatives: T[]): T[] {
+const DISTINCT_RARITY = /illustration|hyper rare|ultra rare|secret|rainbow|shiny|ace spec/i;
+
+// A holo and a non-holo of one card share a name. An illustration rare, a
+// special illustration rare, and the regular card do not: each has its own number.
+export function finishTwins(a: string, b: string): boolean {
+  if (!a || !b || DISTINCT_RARITY.test(a) || DISTINCT_RARITY.test(b)) return false;
+  const holo = (value: string) => /holo/i.test(value);
+  return holo(a) !== holo(b);
+}
+
+export function printingFamily<T extends { id: string; setId: string; name: string; rarity?: string }>(card: T, alternatives: T[]): T[] {
   const name = card.name.toLowerCase();
-  const rest = alternatives.filter((alt) => alt.setId === card.setId && alt.name.toLowerCase() === name && alt.id !== card.id);
+  const rest = alternatives.filter((alt) => {
+    if (alt.id === card.id || alt.setId !== card.setId || alt.name.toLowerCase() !== name) return false;
+    if (card.rarity && alt.rarity) return finishTwins(card.rarity, alt.rarity);
+    return true;
+  });
   return [card, ...rest];
+}
+
+// TCGdex marks a holo-only card as normal:true and files its price under holofoil.
+// That is one printing, not a non-holo plus a holo.
+export function withFinishFlags(
+  variants: VariantQuote[],
+  flags: { normal?: boolean; holo?: boolean; reverse?: boolean } | null,
+  productUrl: string | null,
+): VariantQuote[] {
+  if (!flags) return variants;
+  const pricedHolo = variants.some((variant) => finishOf(variant.key) === "holo");
+  const next = [...variants];
+  const wanted: [boolean | undefined, string][] = [
+    [flags.normal, "normal"],
+    [flags.holo, "holofoil"],
+    [flags.reverse, "reverseHolofoil"],
+  ];
+  for (const [on, key] of wanted) {
+    if (on !== true) continue;
+    if (next.some((variant) => variant.key === key || finishOf(variant.key) === finishOf(key))) continue;
+    if (key === "normal" && pricedHolo && flags.holo !== true) continue;
+    next.push({ key, label: variantLabel(key), market: null, low: null, mid: null, high: null, currency: "USD", productUrl });
+  }
+  return next;
 }
 
 export function mergePrintings(groups: { cardId: string; variants: VariantQuote[] }[]): VariantQuote[] {

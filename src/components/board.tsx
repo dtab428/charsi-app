@@ -182,11 +182,12 @@ function CardDesk({
   const shown = family.find((member) => member.id === (active.cardId ?? card?.id)) ?? card;
   const shownQuote = shown ? quotes[shown.id] : quote;
   const waiting = !pickedKey && family.some((member) => quotes[member.id] === undefined);
-  const hold = active.needsPick || waiting;
+  const unsettled = (item.status === "ambiguous" || item.status === "unmatched") && outside.length > 0;
+  const hold = !unsettled && (active.needsPick || waiting);
   const dim = hold ? "pointer-events-none opacity-30 transition-opacity select-none" : "transition-opacity";
   const printing = activeKey ? printingSlug(activeKey) : null;
   const finish = finishOf(activeKey);
-  const asking = !pickedKey && (active.needsPick || (waiting && family.length > 1));
+  const asking = !unsettled && !pickedKey && (active.needsPick || (waiting && family.length > 1));
   const picture = shown ? shownPicture(shownQuote?.variants ?? printings, activeKey, finish, shown.small, shown.large) : "";
   const auctions = shown ? lanes?.auctions ?? emptyLane(shown, "auction") : null;
   const buyNow = shown ? lanes?.buyNow ?? emptyLane(shown, "bin") : null;
@@ -237,9 +238,14 @@ function CardDesk({
           {(item.status === "ambiguous" || item.status === "unmatched") && outside.length > 0 ? (
             <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
               {outside.map((alt) => (
-                <Pressable key={alt.id} onClick={() => onChoose(item.key, alt)} className="w-24 shrink-0 rounded-sm text-left">
+                <Pressable key={alt.id} onClick={() => onChoose(item.key, alt)} className="w-28 shrink-0 rounded-sm text-left">
                   <CardPicture src={alt.small} alt="" finish={null} width={56} height={78} className="rounded-sm bg-[#2a241e]" />
-                  <span className="mt-1 block text-[10px] leading-tight text-[#b3a694]">{alt.setName} · {alt.printedTotal ? `${alt.number}/${alt.printedTotal}` : alt.number}</span>
+                  <span className="mt-1 block text-[10px] leading-tight text-[#b3a694]">
+                    {alt.setName}
+                    <br />
+                    {alt.printedTotal ? `${alt.number}/${alt.printedTotal}` : alt.number}
+                    {alt.rarity ? ` · ${alt.rarity}` : ""}
+                  </span>
                 </Pressable>
               ))}
             </div>
@@ -260,7 +266,7 @@ function CardDesk({
             </div>
           ) : null}
           {waiting && !asking ? <p className="mt-4 text-xs text-[#b3a694]">Checking the price.</p> : null}
-          {card && printings.length > 0 && !waiting ? (
+          {!unsettled && card && printings.length > 0 && !waiting ? (
             <div className="mt-4">
               <PrintingPicker
                 variants={printings}

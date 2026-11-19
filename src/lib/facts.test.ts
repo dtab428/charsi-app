@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { keptAfterChoice, mergePrintings, resolveActive, shownPicture } from "./facts";
+import { finishTwins, keptAfterChoice, mergePrintings, printingFamily, resolveActive, shownPicture, withFinishFlags } from "./facts";
 import { preferPricedVariants } from "./prices";
 import type { PriceQuote, PublicCard } from "./types";
 import { finishOf, reverseStamp, variantLabel, withoutGenericEditions } from "./format";
@@ -19,6 +19,37 @@ const fossil = [
   variant("unlimited", 40),
   variant("normal"),
 ];
+
+test("an illustration rare stays its own card, and a holo stays a printing of the non-holo", () => {
+  const regular = { id: "me6-84", setId: "me6", name: "Mega Rayquaza ex", rarity: "Double Rare" };
+  const sir = { id: "me6-138", setId: "me6", name: "Mega Rayquaza ex", rarity: "Special Illustration Rare" };
+  const hyper = { id: "me6-141", setId: "me6", name: "Mega Rayquaza ex", rarity: "Mega Hyper Rare" };
+  assert.deepEqual(printingFamily(regular, [sir, hyper]).map((card) => card.id), ["me6-84"]);
+  assert.equal(finishTwins("Double Rare", "Special Illustration Rare"), false);
+  const plain = { id: "ecard3-32", setId: "ecard3", name: "Umbreon", rarity: "Rare" };
+  const holo = { id: "ecard3-H30", setId: "ecard3", name: "Umbreon", rarity: "Rare Holo" };
+  assert.deepEqual(printingFamily(plain, [holo]).map((card) => card.id), ["ecard3-32", "ecard3-H30"]);
+});
+
+test("a holo-only price does not grow a fake non-holo", () => {
+  // Roaring Skies M Rayquaza-EX 61 is holofoil only. TCGdex still flags it normal:true.
+  const priced = [variant("holofoil", 144.13)];
+  const kept = withFinishFlags(priced, { normal: true, holo: false, reverse: false }, null);
+  assert.deepEqual(kept.map((entry) => entry.key), ["holofoil"]);
+  const cap = withFinishFlags([variant("normal", 1), variant("reverseHolofoil", 2)], { normal: true, holo: false, reverse: false }, null);
+  assert.deepEqual(cap.map((entry) => entry.key), ["normal", "reverseHolofoil"]);
+});
+
+test("unlimited uses the smaller scan and 1st edition uses the hires scan", () => {
+  const small = "https://images.example/unlimited.png";
+  const large = "https://images.example/first.png";
+  const unlimited = variant("unlimited");
+  unlimited.image = large;
+  const first = variant("1stEdition");
+  first.image = small;
+  assert.equal(shownPicture([unlimited, first], "unlimited", "normal", small, large), small);
+  assert.equal(shownPicture([unlimited, first], "1stEdition", "normal", small, large), large);
+});
 
 test("a holo printing uses the hires scan when the variant has no photo of its own", () => {
   const flat = "https://images.example/small.png";

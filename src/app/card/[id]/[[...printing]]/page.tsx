@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { CardPage } from "@/components/card-page";
 import { getCatalog, toPublic } from "@/lib/catalog";
+import { finishTwins } from "@/lib/facts";
 import { printingName } from "@/lib/printing";
 
 type Params = Promise<{ id: string; printing?: string[] }>;
@@ -18,7 +19,7 @@ function siblingsOf(cardId: string) {
   if (!card) return [];
   const name = card.name.toLowerCase();
   return catalog.cards
-    .filter((entry) => entry.id !== card.id && entry.set === card.set && entry.name.toLowerCase() === name)
+    .filter((entry) => entry.id !== card.id && entry.set === card.set && entry.name.toLowerCase() === name && finishTwins(card.rarity, entry.rarity))
     .map((entry) => toPublic(catalog, entry));
 }
 

@@ -1,4 +1,5 @@
 import { getCatalog } from "./catalog";
+import { withFinishFlags } from "./facts";
 import { finishOf, reverseStamp, variantLabel, withoutGenericEditions } from "./format";
 import { recordSnapshots } from "./history";
 import type { CardmarketQuote, EuroSales, GradedQuote, PriceQuote, TrendPoint, VariantQuote } from "./types";
@@ -419,16 +420,19 @@ function fromTcgdex(card: Record<string, unknown>): PriceQuote | null {
     }
   }
   const flags = record(card.variants);
-  const wanted: [string, string][] = [
-    ["normal", "normal"],
-    ["holo", "holofoil"],
-    ["reverse", "reverseHolofoil"],
-  ];
   const sharedUrl = variants.find((entry) => entry.productUrl)?.productUrl ?? productUrl;
-  for (const [flag, key] of wanted) {
-    if (flags?.[flag] !== true || variants.some((entry) => entry.key === key)) continue;
-    variants.push({ key, label: variantLabel(key), market: null, low: null, mid: null, high: null, currency: "USD", productUrl: sharedUrl });
-  }
+  const flagged = withFinishFlags(
+    variants,
+    flags
+      ? {
+          normal: flags.normal === true,
+          holo: flags.holo === true,
+          reverse: flags.reverse === true,
+        }
+      : null,
+    sharedUrl,
+  );
+  variants.splice(0, variants.length, ...flagged);
   const plain = market ? euroSales(market, "") : null;
   const holo = market ? euroSales(market, "-holo") : null;
   const cardmarket: CardmarketQuote | null = plain && hasSale(plain)
@@ -485,7 +489,8 @@ function tcgdexCandidates(cardId: string, sets: Map<string, string>): string[] {
   if (!card) return [cardId];
   const setId = sets.get(card.set) ?? card.set;
   const stripped = card.num.replace(/^0+(?=\d)/, "");
-  return [...new Set([`${setId}-${card.num}`, `${setId}-${stripped}`, card.id])];
+  const padded = /^\d+$/.test(stripped) ? stripped.padStart(3, "0") : card.num;
+  return [...new Set([`${setId}-${padded}`, `${setId}-${card.num}`, `${setId}-${stripped}`, card.id])];
 }
 
 async function readTcgdex(id: string): Promise<PriceQuote | null> {

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Pressable } from "@/components/ui/ripple";
 import { Skeleton } from "@/components/ui/skeleton";
 import { findPrinting, cardHref, printingName } from "@/lib/printing";
-import { pickVariant } from "@/lib/facts";
+import { pickVariant, shownPicture } from "@/lib/facts";
 import { useCurrency } from "@/components/currency";
 import { finishOf, reverseStamp } from "@/lib/format";
 import type { PriceQuote, PublicCard } from "@/lib/types";
@@ -31,7 +31,16 @@ type Tab = "all" | "raw" | "graded";
 function Tile({ entry, value, onQuantity, onRemove }: { entry: Entry; value: number | null; onQuantity: (entry: Entry, quantity: number) => void; onRemove: (entry: Entry) => void }) {
   const { format } = useCurrency();
   const finish = finishOf(entry.printing);
-  const picture = <CardPicture src={entry.card.small} alt={entry.card.name} finish={finish} stamp={finish === "reverse" ? reverseStamp(entry.card.setId) : ""} width={245} height={342} />;
+  const picture = (
+    <CardPicture
+      src={shownPicture([], entry.printing, finish, entry.card.small, entry.card.large)}
+      alt={entry.card.name}
+      finish={finish}
+      stamp={finish === "reverse" ? reverseStamp(entry.card.setId) : ""}
+      width={245}
+      height={342}
+    />
+  );
   return (
     <li className="flex gap-3 rounded-2xl border border-white/10 bg-[#1c1814]/80 p-3">
       <Pressable sameTab href={cardHref(entry.cardId, entry.printing)} className={`block shrink-0 self-start rounded-md ${entry.kind === "graded" ? "w-28 sm:w-32" : "w-20 sm:w-24"}`}>
