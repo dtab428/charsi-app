@@ -1,6 +1,7 @@
 import { getCatalog, toPublic } from "@/lib/catalog";
 import {
   addToCollection,
+  FullError,
   listCollection,
   removeFromCollection,
   setQuantity,
@@ -78,8 +79,9 @@ export function holdingRoute(bucket: Bucket, name: string) {
       try {
         const entries = await addToCollection(checked.user.id, { cardId, kind: input.kind, company, grade, printing, quantity }, bucket);
         return Response.json({ entries: view(entries) }, { headers: noStore });
-      } catch {
-        return Response.json({ error: `${name} is full.` }, { status: 409 });
+      } catch (error) {
+        if (error instanceof FullError) return Response.json({ error: `${name} is full.` }, { status: 409 });
+        return Response.json({ error: `${name} couldn’t be saved right now.` }, { status: 503 });
       }
     },
     async PATCH(request: Request) {
