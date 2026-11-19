@@ -73,6 +73,13 @@ test("charizard expedition finds the 2002 Expedition Charizards", () => {
   assert.deepEqual(ids, ["ecard1-39", "ecard1-40", "ecard1-6"]);
 });
 
+test("a promo number like XY124 is the number, not a shorter set code", () => {
+  const item = one("pikachu xy124");
+  assert.equal(item.card?.id, "xyp-XY124");
+  assert.equal(item.card?.setId, "xyp");
+  assert.equal(item.alternatives.some((alt) => alt.setId === "xy12"), false);
+});
+
 test("leaves a nonsense line unmatched", () => {
   const item = one("blorbo zzz 999");
   assert.equal(item.status, "unmatched");

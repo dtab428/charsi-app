@@ -159,7 +159,7 @@ export function parseList(text: string): ParsedLine[] {
     let number = numbered.number;
     if (!number) {
       const last = tokens[tokens.length - 1];
-      if (last && (/^\d{1,3}$/.test(last) || /^[a-z]{1,4}\d{2,4}$/.test(last)) && Number(last) < 1990) {
+      if (last && ((/^\d{1,3}$/.test(last) && Number(last) < 1990) || /^[a-z]{1,4}\d{3,4}$/.test(last))) {
         number = last;
       }
     }

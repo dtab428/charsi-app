@@ -104,7 +104,7 @@ function findSet(catalog: IndexedCatalog, tokens: string[], number: string | nul
 }
 
 function fuzzySetWord(catalog: IndexedCatalog, token: string): { word: string; sets: string[] } | null {
-  if (token.length < 5 || catalog.tokenIndex.has(token)) return null;
+  if (token.length < 5 || /\d/.test(token) || catalog.tokenIndex.has(token)) return null;
   const max = 1;
   let best: { distance: number; word: string; sets: string[] } | null = null;
   let runner = max + 1;
