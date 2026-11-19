@@ -74,6 +74,26 @@ function numberOrNull(value: unknown): number | null {
   return Number.isFinite(number) ? number : null;
 }
 
+type MoneyField = { value?: unknown; currency?: unknown };
+
+function moneyField(value: unknown): { amount: number | null; currency: string | null } {
+  if (!value || typeof value !== "object") return { amount: null, currency: null };
+  const field = value as MoneyField;
+  return {
+    amount: numberOrNull(field.value),
+    currency: typeof field.currency === "string" ? field.currency : null,
+  };
+}
+
+// Fixed-price listings carry `price`. Auctions leave `price` empty and put
+// the current bid in `currentBidPrice`, including a starting bid with 0 bids.
+export function listingAmount(item: { price?: unknown; currentBidPrice?: unknown }): { amount: number | null; currency: string } {
+  const ask = moneyField(item.price);
+  const bid = moneyField(item.currentBidPrice);
+  const chosen = ask.amount != null ? ask : bid;
+  return { amount: chosen.amount, currency: chosen.currency ?? "USD" };
+}
+
 function listingsFrom(payload: unknown): Listing[] {
   const root = payload && typeof payload === "object" ? (payload as { itemSummaries?: unknown }) : null;
   if (!root || !Array.isArray(root.itemSummaries)) return [];
@@ -84,7 +104,7 @@ function listingsFrom(payload: unknown): Listing[] {
     const url = safeEbayUrl(item.itemWebUrl);
     const title = typeof item.title === "string" ? item.title.slice(0, 140) : "";
     if (!url || !title) continue;
-    const price = item.price && typeof item.price === "object" ? (item.price as { value?: unknown; currency?: unknown }) : null;
+    const amount = listingAmount(item);
     const thumb = item.thumbnailImages && Array.isArray(item.thumbnailImages) ? (item.thumbnailImages[0] as { imageUrl?: unknown } | undefined) : undefined;
     const picture = item.image && typeof item.image === "object" ? (item.image as { imageUrl?: unknown }).imageUrl : thumb?.imageUrl;
     const image = typeof picture === "string" && /^https:\/\/i\.ebayimg\.com\//.test(picture) ? picture : null;
@@ -95,8 +115,8 @@ function listingsFrom(payload: unknown): Listing[] {
       title,
       url,
       image,
-      price: numberOrNull(price?.value),
-      currency: typeof price?.currency === "string" ? price.currency : "USD",
+      price: amount.amount,
+      currency: amount.currency,
       bids: numberOrNull(item.bidCount),
       endsAt: typeof item.itemEndDate === "string" ? item.itemEndDate : null,
       listedAt: typeof item.itemCreationDate === "string" ? item.itemCreationDate : null,

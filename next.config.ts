@@ -13,6 +13,7 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "tcgplayer-cdn.tcgplayer.com", pathname: "/**" },
       { protocol: "https", hostname: "assets.tcgdex.net", pathname: "/**" },
       { protocol: "https", hostname: "card-images.fetchtcg.com", pathname: "/**" },
+      { protocol: "https", hostname: "i.ebayimg.com", pathname: "/**" },
     ],
   },
   turbopack: {

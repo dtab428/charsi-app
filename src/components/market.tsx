@@ -1,7 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Pressable } from "@/components/ui/ripple";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -132,6 +134,9 @@ export function MarketFilters({ filters, onChange, conditionLabel = "All cards" 
 }
 
 function RowView({ row }: { row: FeedRow }) {
+  const [open, setOpen] = useState(false);
+  const [photoOk, setPhotoOk] = useState(true);
+  const photo = row.image && photoOk ? row.image : null;
   const body = (
     <>
       <span className={`shrink-0 rounded-full px-2 py-0.5 text-center text-[10px] font-medium tracking-[0.08em] whitespace-nowrap uppercase ${BADGE_STYLE[row.source]}`}>
@@ -151,15 +156,41 @@ function RowView({ row }: { row: FeedRow }) {
       </span>
     </>
   );
-  const shell = "flex w-full items-center gap-3 rounded-xl bg-white/[0.06] px-3 py-2.5";
-  if (row.href) {
-    return (
-      <Pressable href={row.href} className={`${shell} hover:bg-white/[0.1]`}>
-        {body}
-      </Pressable>
-    );
-  }
-  return <div className={shell}>{body}</div>;
+  const shell = "flex min-w-0 flex-1 items-center gap-3 rounded-xl px-3 py-2.5";
+  return (
+    <div className="flex w-full min-w-0 items-stretch gap-1 rounded-xl bg-white/[0.06]">
+      {photo ? (
+        <button type="button" onClick={() => setOpen(true)} className="shrink-0 self-center pl-2" aria-label={`Quick view of ${row.label}`}>
+          <Image src={photo} alt="" width={80} height={112} unoptimized className="h-14 w-10 rounded-md bg-[#2a241e] object-cover" onError={() => setPhotoOk(false)} />
+        </button>
+      ) : null}
+      {row.href ? (
+        <Pressable href={row.href} className={`${shell} hover:bg-white/[0.1]`}>
+          {body}
+        </Pressable>
+      ) : (
+        <div className={shell}>{body}</div>
+      )}
+      {photo ? (
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogContent className="bg-[#1c1814] sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="pr-8 font-serif text-xl leading-snug">{row.label}</DialogTitle>
+              <DialogDescription>
+                {[row.sub, row.value, row.when].filter(Boolean).join(" · ")}
+              </DialogDescription>
+            </DialogHeader>
+            <Image src={photo} alt={row.label} width={800} height={800} unoptimized className="mx-auto max-h-[70vh] w-full rounded-lg bg-[#2a241e] object-contain" />
+            {row.href ? (
+              <a href={row.href} target="_blank" rel="noreferrer" className="text-sm text-[#d4a574] hover:underline">
+                Open this listing on eBay ↗
+              </a>
+            ) : null}
+          </DialogContent>
+        </Dialog>
+      ) : null}
+    </div>
+  );
 }
 
 function productIdOf(url: string | null | undefined): number | null {
@@ -170,11 +201,11 @@ function productIdOf(url: string | null | undefined): number | null {
 function Section({ title, rows }: { title: string; rows: FeedRow[] }) {
   if (rows.length === 0) return null;
   return (
-    <section>
+    <section className="min-w-0">
       <h4 className="mb-1.5 text-[10px] font-medium tracking-[0.16em] text-[#d4a574] uppercase">{title}</h4>
       <ul className="flex flex-col gap-1.5">
         {rows.map((row) => (
-          <li key={row.id}>
+          <li key={row.id} className="min-w-0">
             <RowView row={row} />
           </li>
         ))}
@@ -296,7 +327,7 @@ export function CardMarket({
         </div>
       ) : null}
       {needsAsk && ask === undefined ? <Skeleton className="h-[3.4rem] w-full rounded-xl bg-white/10" aria-label="Loading condition price" /> : null}
-      <div className="grid items-start gap-4 lg:grid-cols-2">
+      <div className="grid min-w-0 items-start gap-4 lg:grid-cols-2">
         <Section title="Ended recently" rows={feed.ended} />
         <Section title="Live now" rows={feed.live} />
       </div>

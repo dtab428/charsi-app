@@ -13,7 +13,7 @@ import { PriceChart, type ChartPoint } from "@/components/price-chart";
 import { PrintingPicker } from "@/components/printing-picker";
 import { mergePrintings, resolveActive, saleAverages, shownPicture } from "@/lib/facts";
 import { DEFAULT_FILTERS, type Filters } from "@/lib/feed";
-import { finishOf, releaseYear, reverseStamp, quoteDate, variantLabel } from "@/lib/format";
+import { editionOf, finishOf, releaseYear, reverseStamp, quoteDate, variantLabel } from "@/lib/format";
 import { emptyLane } from "@/lib/links";
 import { cardHref, findPrinting, printingSlug } from "@/lib/printing";
 import type { Snapshot } from "@/lib/history";
@@ -152,6 +152,7 @@ export function CardPage({ card, printing, siblings = [] }: { card: PublicCard; 
               </Slab>
             )}
             {finish === "reverse" && reverseStamp(card.setId) ? <p className="text-center text-[10px] leading-tight text-[#b3a694]">Set logo placed on the holo photo.</p> : null}
+            {editionOf(activeKey) === "unlimited" ? <p className="text-center text-[10px] leading-tight text-[#b3a694]">Unlimited has no Edition 1 stamp, so it’s covered on this photo.</p> : null}
             <AddToCollection
               card={card}
               printing={activeKey ? printingSlug(activeKey) : null}

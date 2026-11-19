@@ -1,3 +1,4 @@
+import { coverEditionStamp } from "@/lib/edition-scan";
 import { allowedImageUrl } from "@/lib/links";
 import { limited } from "@/lib/rate-limit";
 
@@ -6,7 +7,9 @@ const MAX_BYTES = 9_000_000;
 export async function GET(request: Request) {
   const blocked = limited(request, "image", 240);
   if (blocked) return blocked;
-  const src = new URL(request.url).searchParams.get("src");
+  const params = new URL(request.url).searchParams;
+  const src = params.get("src");
+  const cover = params.get("cover");
   if (!src || !allowedImageUrl(src)) {
     return Response.json({ error: "That picture isn’t from the card catalog." }, { status: 400 });
   }
@@ -55,6 +58,20 @@ export async function GET(request: Request) {
   for (const chunk of chunks) {
     body.set(chunk, offset);
     offset += chunk.byteLength;
+  }
+
+  if (cover === "stamp") {
+    try {
+      const covered = await coverEditionStamp(Buffer.from(body));
+      return new Response(new Uint8Array(covered), {
+        headers: {
+          "content-type": "image/jpeg",
+          "cache-control": "public, max-age=86400",
+        },
+      });
+    } catch {
+      // The original scan is still a picture of the card.
+    }
   }
 
   return new Response(body, {

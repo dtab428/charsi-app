@@ -22,12 +22,17 @@ export function holoScan<T extends { id: string; rarity: string; large: string }
   return twin?.large || card.large;
 }
 
+export function unlimitedPicture(src: string): string {
+  if (!src.startsWith("https://images.pokemontcg.io/")) return src;
+  return `/api/image?src=${encodeURIComponent(src)}&cover=stamp`;
+}
+
 export function shownPicture(variants: VariantQuote[], activeKey: string | null, finish: Finish | null, small: string, large: string): string {
   const edition = editionOf(activeKey);
-  // On a lot of older sets the hires scan is the 1st-edition copy and the
-  // smaller scan is the unlimited copy.
+  // Both catalog sizes are usually the 1st edition photo. 1st edition
+  // keeps that scan. Unlimited uses the same sharp photo with the stamp covered.
   if (edition === "first") return large || small;
-  if (edition === "unlimited") return small || large;
+  if (edition === "unlimited") return unlimitedPicture(large || small);
   const current = activeKey ? variants.find((variant) => variant.key === activeKey) : undefined;
   if (current?.image) return current.image;
   if (finish === "reverse") {

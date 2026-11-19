@@ -48,15 +48,16 @@ test("a holo-only price does not grow a fake non-holo", () => {
   assert.deepEqual(cap.map((entry) => entry.key), ["normal", "reverseHolofoil"]);
 });
 
-test("unlimited uses the smaller scan and 1st edition uses the hires scan", () => {
-  const small = "https://images.example/unlimited.png";
-  const large = "https://images.example/first.png";
+test("unlimited covers the stamp on the hires scan and 1st edition keeps it", () => {
+  const small = "https://images.pokemontcg.io/base3/4.png";
+  const large = "https://images.pokemontcg.io/base3/4_hires.png";
   const unlimited = variant("unlimited");
   unlimited.image = large;
   const first = variant("1stEdition");
   first.image = small;
-  assert.equal(shownPicture([unlimited, first], "unlimited", "normal", small, large), small);
+  assert.equal(shownPicture([unlimited, first], "unlimited", "normal", small, large), `/api/image?src=${encodeURIComponent(large)}&cover=stamp`);
   assert.equal(shownPicture([unlimited, first], "1stEdition", "normal", small, large), large);
+  assert.equal(shownPicture([unlimited], "unlimited", "normal", "https://images.example/plain.png", ""), "https://images.example/plain.png");
 });
 
 test("a holo printing uses the hires scan when the variant has no photo of its own", () => {

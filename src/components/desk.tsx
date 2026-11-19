@@ -14,7 +14,7 @@ import { SiteHeader } from "@/components/account-menu";
 import { MarketFilters } from "@/components/market";
 import { COMPANIES, DEFAULT_FILTERS, GRADES, type Filters } from "@/lib/feed";
 import { asWear, isWear } from "@/lib/wear";
-import { keptAfterChoice, marketAmount, mergePrintings, printingFamily, resolveActive } from "@/lib/facts";
+import { keptAfterChoice, marketAmount, mergePrintings, printingFamily, resolveActive, shownPicture } from "@/lib/facts";
 import { printingSlug } from "@/lib/printing";
 import { deskShareFrom, deskShareHref, EMPTY_LINE, type DeskShare, type FilterShare, type LineShare } from "@/lib/share";
 import { withSharedCard, withSharedPrinting } from "@/lib/share-pick";
@@ -385,7 +385,7 @@ export function Desk() {
         const copies = Math.min(item.quantity, 8);
         const grade = item.grading ? `${item.grading.company}${item.grading.grade ? ` ${item.grading.grade}` : ""}` : "";
         return Array.from({ length: copies }, () => ({
-          srcs: [printing?.image ?? "", owner.large, owner.small],
+          srcs: [shownPicture(variants, active.key, finish, owner.small, owner.large), owner.large, owner.small],
           name: owner.name,
           line: [`${owner.setCode || owner.setName} · ${owner.printedTotal ? `${owner.number}/${owner.printedTotal}` : owner.number}`, variants.length > 1 && printing ? variantLabel(printing.key) : "", grade].filter(Boolean).join(" · "),
           finish,

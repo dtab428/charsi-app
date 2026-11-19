@@ -150,8 +150,8 @@ export function buildFeed(input: {
       ended.push({
         id: "ebay-sold",
         source: "ebay",
-        label: "Sold on eBay",
-        sub: "Ended recently, newest first",
+        label: "Recent eBay sales",
+        sub: "Sold listings, newest first",
         value: "Open eBay",
         when: null,
         href: ebaySearchUrl(card, "sold", null, finishTerm(variant?.key), wear),
@@ -345,8 +345,8 @@ export function buildFeed(input: {
       ended.push({
         id: "ebay-sold-graded",
         source: "ebay",
-        label: `Sold on eBay · ${grading.company} ${grading.grade}${printingLabel}`,
-        sub: "Ended recently, newest first",
+        label: `Recent eBay sales · ${grading.company} ${grading.grade}${printingLabel}`,
+        sub: "Sold listings, newest first",
         value: "Open eBay",
         when: null,
         href: ebaySearchUrl(card, "sold", grading, asked),
