@@ -11,7 +11,7 @@ import { useCurrency } from "@/components/currency";
 import { CardMarket, MarketFilters } from "@/components/market";
 import { PriceChart, type ChartPoint } from "@/components/price-chart";
 import { PrintingPicker } from "@/components/printing-picker";
-import { mergePrintings, resolveActive, saleAverages, shownPicture } from "@/lib/facts";
+import { mergePrintings, resolveActive, saleAverages, shownPicture, variantFor } from "@/lib/facts";
 import { DEFAULT_FILTERS, type Filters } from "@/lib/feed";
 import { coversEditionStamp, editionOf, finishOf, releaseYear, reverseStamp, quoteDate, variantLabel } from "@/lib/format";
 import { emptyLane } from "@/lib/links";
@@ -105,10 +105,11 @@ export function CardPage({ card, printing, siblings = [] }: { card: PublicCard; 
     modifiers: [],
     variants,
     pickedKey: fromLink?.key ?? null,
+    pickedCardId: card.id,
     loaded: quote !== undefined && (Boolean(fromLink) || familyLoaded),
   });
   const activeKey = active.key;
-  const selected = variants.find((entry) => entry.key === activeKey) ?? null;
+  const selected = variantFor(variants, activeKey, active.cardId) ?? null;
   const finish = finishOf(activeKey) ?? finishOf(printing);
   const waiting = quote === undefined || (!fromLink && !familyLoaded);
   const asking = !fromLink && (active.needsPick || (waiting && siblings.length > 0));
@@ -145,10 +146,10 @@ export function CardPage({ card, printing, siblings = [] }: { card: PublicCard; 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,19rem)_minmax(0,1fr)]">
           <aside inert={hold} className={`flex flex-col gap-4 ${dim}`}>
             {filters.condition === "raw" ? (
-              <CardPicture src={shownPicture(variants, activeKey, finish, card.small, card.large)} alt={card.name} finish={finish} badge={variants.length > 1} stamp={finish === "reverse" ? reverseStamp(card.setId) : ""} width={480} height={670} priority className="rounded-xl bg-[#2a241e]" />
+              <CardPicture src={shownPicture(variants, activeKey, finish, card.small, card.large, active.cardId)} alt={card.name} finish={finish} badge={variants.length > 1} stamp={finish === "reverse" ? reverseStamp(card.setId) : ""} width={480} height={670} priority className="rounded-xl bg-[#2a241e]" />
             ) : (
               <Slab company={filters.condition} grade={filters.grade}>
-                <CardPicture src={shownPicture(variants, activeKey, finish, card.small, card.large)} alt={card.name} finish={finish} badge={variants.length > 1} stamp={finish === "reverse" ? reverseStamp(card.setId) : ""} width={480} height={670} priority className="rounded-xl bg-[#2a241e]" />
+                <CardPicture src={shownPicture(variants, activeKey, finish, card.small, card.large, active.cardId)} alt={card.name} finish={finish} badge={variants.length > 1} stamp={finish === "reverse" ? reverseStamp(card.setId) : ""} width={480} height={670} priority className="rounded-xl bg-[#2a241e]" />
               </Slab>
             )}
             {finish === "reverse" && reverseStamp(card.setId) ? <p className="text-center text-[10px] leading-tight text-[#b3a694]">Set logo placed on the holo photo.</p> : null}

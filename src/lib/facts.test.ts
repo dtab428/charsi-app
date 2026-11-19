@@ -7,8 +7,8 @@ import { finishOf, reverseStamp, variantLabel, withoutGenericEditions } from "./
 import { stampLogo } from "./stamp-art";
 import type { VariantQuote } from "./types";
 
-function variant(key: string, market: number | null = 10): VariantQuote {
-  return { key, label: key, market, low: null, mid: null, high: null, currency: "USD" };
+function variant(key: string, market: number | null = 10, productUrl: string | null = null): VariantQuote {
+  return { key, label: key, market, low: null, mid: null, high: null, currency: "USD", productUrl };
 }
 
 const fossil = [
@@ -141,4 +141,31 @@ test("a modern card with three finishes still asks, and a stated reverse does no
   const reverse = resolveActive({ finish: "reverse", modifiers: ["reverse"], variants, pickedKey: null, loaded: true });
   assert.equal(reverse.needsPick, false);
   assert.equal(reverse.key, "reverseHolofoil");
+});
+
+test("each Expedition number keeps its own printings, even when the finish repeats", () => {
+  const charizard6 = [variant("holofoil", 100, "https://www.tcgplayer.com/product/84183"), variant("reverseHolofoil", 436.08, "https://www.tcgplayer.com/product/84183")];
+  const charizard39 = [variant("normal", 207.65, "https://www.tcgplayer.com/product/84184"), variant("reverseHolofoil", 750, "https://www.tcgplayer.com/product/84184")];
+  const charizard40 = [variant("normal", 152.17, "https://www.tcgplayer.com/product/84185"), variant("reverseHolofoil", 449.99, "https://www.tcgplayer.com/product/84185")];
+  const merged = mergePrintings([
+    { cardId: "ecard1-6", variants: charizard6 },
+    { cardId: "ecard1-39", variants: charizard39 },
+    { cardId: "ecard1-40", variants: charizard40 },
+  ]);
+  assert.equal(merged.filter((entry) => entry.key === "reverseHolofoil").length, 3);
+  assert.equal(merged.filter((entry) => entry.key === "normal").length, 2);
+  const open = resolveActive({ finish: null, modifiers: [], variants: merged, pickedKey: null, loaded: true });
+  assert.equal(open.needsPick, true);
+  const picked = resolveActive({ finish: null, modifiers: [], variants: merged, pickedKey: "normal", pickedCardId: "ecard1-40", loaded: true });
+  assert.equal(picked.cardId, "ecard1-40");
+  assert.equal(picked.key, "normal");
+});
+
+test("the same product listed under two numbers collapses to one printing", () => {
+  const holo = variant("holofoil", 689.86, "https://www.tcgplayer.com/product/42");
+  const merged = mergePrintings([
+    { cardId: "ecard3-H30", variants: [holo] },
+    { cardId: "ecard3-32", variants: [holo] },
+  ]);
+  assert.equal(merged.length, 1);
 });

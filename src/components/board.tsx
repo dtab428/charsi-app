@@ -179,7 +179,7 @@ function CardDesk({
   }, [filters.condition, filters.grade, filters.wear]);
   const view = item.view ?? (useTyped ? typedView(item.grading) : null) ?? { condition: filters.condition, grade: filters.grade, wear: filters.wear };
   const cardFilters: Filters = { ...filters, condition: view.condition, grade: view.grade, wear: view.wear };
-  const active = resolveActive({ finish: item.finish, modifiers: item.modifiers, variants: printings, pickedKey, loaded });
+  const active = resolveActive({ finish: item.finish, modifiers: item.modifiers, variants: printings, pickedKey, pickedCardId: card?.id, loaded });
   const activeKey = active.key;
   const shown = family.find((member) => member.id === (active.cardId ?? card?.id)) ?? card;
   const shownQuote = shown ? quotes[shown.id] : quote;
@@ -190,7 +190,7 @@ function CardDesk({
   const printing = activeKey ? printingSlug(activeKey) : null;
   const finish = finishOf(activeKey);
   const asking = !unsettled && !pickedKey && (active.needsPick || (waiting && family.length > 1));
-  const picture = shown ? shownPicture(shownQuote?.variants ?? printings, activeKey, finish, shown.small, shown.large) : "";
+  const picture = shown ? shownPicture(shownQuote?.variants ?? printings, activeKey, finish, shown.small, shown.large, active.cardId) : "";
   const auctions = shown ? lanes?.auctions ?? emptyLane(shown, "auction") : null;
   const buyNow = shown ? lanes?.buyNow ?? emptyLane(shown, "bin") : null;
 

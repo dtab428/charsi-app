@@ -267,7 +267,7 @@ function catalogHolo(cardId: string): { id: string; image: string } | null {
   const siblings = catalog.cards.filter(
     (other) => other.id !== card.id && other.set === card.set && other.name.toLowerCase() === name && /holo/i.test(other.rarity) && !/reverse/i.test(other.rarity),
   );
-  const sibling = siblings.find((other) => /^h/i.test(other.num)) ?? siblings[0];
+  const sibling = siblings.find((other) => /^h/i.test(other.num));
   if (!sibling) return null;
   return { id: sibling.id, image: sibling.large || sibling.small };
 }

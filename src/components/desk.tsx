@@ -14,7 +14,7 @@ import { SiteHeader } from "@/components/account-menu";
 import { MarketFilters } from "@/components/market";
 import { COMPANIES, DEFAULT_FILTERS, GRADES, type Filters } from "@/lib/feed";
 import { asWear, isWear } from "@/lib/wear";
-import { keptAfterChoice, marketAmount, mergePrintings, printingFamily, resolveActive, shownPicture } from "@/lib/facts";
+import { keptAfterChoice, marketAmount, mergePrintings, printingFamily, resolveActive, shownPicture, variantFor } from "@/lib/facts";
 import { printingSlug } from "@/lib/printing";
 import { deskShareFrom, deskShareHref, EMPTY_LINE, type DeskShare, type FilterShare, type LineShare } from "@/lib/share";
 import { withSharedCard, withSharedPrinting } from "@/lib/share-pick";
@@ -378,14 +378,14 @@ export function Desk() {
         const quote = quotes[card.id];
         const family = printingFamily(card, item.alternatives);
         const variants = mergePrintings(family.map((member) => ({ cardId: member.id, variants: (member.id === card.id ? quote : quotes[member.id])?.variants ?? [] })));
-        const active = resolveActive({ finish: item.finish, modifiers: item.modifiers, variants, pickedKey: item.picked, loaded: family.every((member) => quotes[member.id] !== undefined) });
+        const active = resolveActive({ finish: item.finish, modifiers: item.modifiers, variants, pickedKey: item.picked, pickedCardId: card.id, loaded: family.every((member) => quotes[member.id] !== undefined) });
         const owner = family.find((member) => member.id === (active.cardId ?? card.id)) ?? card;
-        const printing = variants.find((entry) => entry.key === active.key) ?? null;
+        const printing = variantFor(variants, active.key, active.cardId) ?? null;
         const finish = finishOf(active.key);
         const copies = Math.min(item.quantity, 8);
         const grade = item.grading ? `${item.grading.company}${item.grading.grade ? ` ${item.grading.grade}` : ""}` : "";
         return Array.from({ length: copies }, () => ({
-          srcs: [shownPicture(variants, active.key, finish, owner.small, owner.large), owner.large, owner.small],
+          srcs: [shownPicture(variants, active.key, finish, owner.small, owner.large, active.cardId), owner.large, owner.small],
           name: owner.name,
           line: [`${owner.setCode || owner.setName} · ${owner.printedTotal ? `${owner.number}/${owner.printedTotal}` : owner.number}`, variants.length > 1 && printing ? variantLabel(printing.key) : "", grade].filter(Boolean).join(" · "),
           finish,

@@ -27,13 +27,13 @@ export function unlimitedPicture(src: string): string {
   return `/api/image?src=${encodeURIComponent(src)}&cover=stamp`;
 }
 
-export function shownPicture(variants: VariantQuote[], activeKey: string | null, finish: Finish | null, small: string, large: string): string {
+export function shownPicture(variants: VariantQuote[], activeKey: string | null, finish: Finish | null, small: string, large: string, cardId?: string | null): string {
   const edition = editionOf(activeKey);
   // Both catalog sizes are usually the 1st edition photo. 1st edition
   // keeps that scan. Unlimited uses the same sharp photo with the stamp covered.
   if (edition === "first") return large || small;
   if (coversEditionStamp(activeKey)) return unlimitedPicture(large || small);
-  const current = activeKey ? variants.find((variant) => variant.key === activeKey) : undefined;
+  const current = variantFor(variants, activeKey, cardId);
   if (current?.image) return current.image;
   if (finish === "reverse") {
     const holo = variants.find((variant) => finishOf(variant.key) === "holo" && variant.image);
@@ -103,12 +103,15 @@ export function withFinishFlags(
   return next;
 }
 
+// Two numbers of one name can share a finish (Expedition 6 and 39 both have a
+// reverse holo). Each number keeps its own printing. Only the same product
+// listed twice collapses, such as a holo borrowed from a holo-numbered sibling.
 export function mergePrintings(groups: { cardId: string; variants: VariantQuote[] }[]): VariantQuote[] {
   const seen = new Set<string>();
   const merged: VariantQuote[] = [];
   for (const group of groups) {
     for (const variant of group.variants) {
-      const identity = `${editionOf(variant.key) ?? "-"}:${finishOf(variant.key) ?? variant.key}`;
+      const identity = `${editionOf(variant.key) ?? "-"}:${finishOf(variant.key) ?? variant.key}:${variant.productUrl ?? group.cardId}`;
       if (seen.has(identity)) continue;
       seen.add(identity);
       merged.push({ ...variant, cardId: group.cardId });
@@ -117,15 +120,22 @@ export function mergePrintings(groups: { cardId: string; variants: VariantQuote[
   return withoutGenericEditions(merged);
 }
 
+export function variantFor(variants: VariantQuote[], key: string | null, cardId?: string | null): VariantQuote | undefined {
+  if (!key) return undefined;
+  const same = variants.filter((variant) => variant.key === key);
+  return same.find((variant) => cardId && variant.cardId === cardId) ?? same[0];
+}
+
 export function resolveActive(input: {
   finish: Finish | null;
   modifiers: string[];
   variants: VariantQuote[];
   pickedKey: string | null;
+  pickedCardId?: string | null;
   loaded: boolean;
 }): ActiveVariant {
-  const { finish, modifiers, variants, pickedKey, loaded } = input;
-  const picked = pickedKey ? variants.find((variant) => variant.key === pickedKey) : undefined;
+  const { finish, modifiers, variants, pickedKey, pickedCardId, loaded } = input;
+  const picked = variantFor(variants, pickedKey, pickedCardId);
   if (picked) return { key: picked.key, cardId: picked.cardId ?? null, needsPick: false, missing: null };
   if (!loaded) return { key: null, cardId: null, needsPick: false, missing: null };
 
