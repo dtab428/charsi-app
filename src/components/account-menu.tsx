@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { CurrencySelect } from "@/components/currency";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Pressable } from "@/components/ui/ripple";
 
 export type Me = {
@@ -12,21 +13,51 @@ export type Me = {
   user: { id: string; name: string; avatar: string | null; provider: "discord" } | null;
 };
 
-export function useMe() {
-  const [me, setMe] = useState<Me | null>(null);
-  useEffect(() => {
-    let live = true;
+const UNKNOWN = Symbol("unknown");
+type Session = Me | typeof UNKNOWN;
+
+let session: Session = UNKNOWN;
+const listeners = new Set<() => void>();
+let started = false;
+
+function publish(next: Session) {
+  session = next;
+  listeners.forEach((listener) => listener());
+}
+
+function remember(value: Me | null) {
+  publish(value ?? { configured: false, user: null });
+}
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  if (!started) {
+    started = true;
     fetch("/api/me")
       .then((response) => (response.ok ? (response.json() as Promise<Me>) : null))
-      .then((value) => {
-        if (live) setMe(value);
-      })
-      .catch(() => undefined);
-    return () => {
-      live = false;
-    };
-  }, []);
-  return { me, setMe };
+      .then((value) => remember(value))
+      .catch(() => {
+        if (session === UNKNOWN) remember(null);
+      });
+  }
+  return () => listeners.delete(listener);
+}
+
+function clientSession(): Session {
+  return session;
+}
+
+function serverSession(): Session {
+  return UNKNOWN;
+}
+
+export function useMe() {
+  const current = useSyncExternalStore(subscribe, clientSession, serverSession);
+  return {
+    me: current === UNKNOWN ? null : current,
+    known: current !== UNKNOWN,
+    setMe: remember,
+  };
 }
 
 export function useSigninNotice() {
@@ -50,7 +81,7 @@ export function useSigninNotice() {
 }
 
 export function AccountMenu() {
-  const { me, setMe } = useMe();
+  const { me, known, setMe } = useMe();
   useSigninNotice();
 
   async function signOut() {
@@ -58,23 +89,6 @@ export function AccountMenu() {
     setMe(me ? { ...me, user: null } : me);
     toast("Signed out.");
     window.location.reload();
-  }
-
-  if (!me) {
-    return (
-      <div className="flex flex-wrap items-center gap-2">
-        <CurrencySelect />
-        <Pressable href="/collection" sameTab className="inline-flex h-8 items-center rounded-full border border-white/15 px-3 text-sm hover:bg-white/10">
-          My Collection
-        </Pressable>
-        <Pressable href="/wishlist" sameTab className="inline-flex h-8 items-center rounded-full border border-white/15 px-3 text-sm hover:bg-white/10">
-          My Wishlist
-        </Pressable>
-        <Pressable href="/api/auth/discord" sameTab className="inline-flex h-8 items-center rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground">
-          Sign in with Discord
-        </Pressable>
-      </div>
-    );
   }
 
   return (
@@ -86,7 +100,7 @@ export function AccountMenu() {
       <Pressable href="/wishlist" sameTab className="inline-flex h-8 items-center rounded-full border border-white/15 px-3 text-sm hover:bg-white/10">
         My Wishlist
       </Pressable>
-      {me.user ? (
+      {known && me?.user ? (
         <div className="flex items-center gap-2">
           {me.user.avatar ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -97,10 +111,12 @@ export function AccountMenu() {
             Sign out
           </Button>
         </div>
-      ) : (
+      ) : known ? (
         <Pressable href="/api/auth/discord" sameTab className="inline-flex h-8 items-center rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground">
           Sign in with Discord
         </Pressable>
+      ) : (
+        <Skeleton className="h-8 w-40 rounded-full bg-white/10" aria-hidden />
       )}
     </div>
   );

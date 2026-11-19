@@ -7,16 +7,10 @@ import { CardPicture } from "@/components/card-picture";
 import { HoldingsProvider } from "@/components/holding-toggles";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { AccountMenu } from "@/components/account-menu";
+import { SiteHeader } from "@/components/account-menu";
 import { MarketFilters } from "@/components/market";
 import { COMPANIES, DEFAULT_FILTERS, GRADES, type Filters } from "@/lib/feed";
 import { keptAfterChoice, marketAmount, mergePrintings, printingFamily, resolveActive } from "@/lib/facts";
@@ -25,12 +19,11 @@ import { deskShareFrom, deskShareHref, EMPTY_LINE, type DeskShare, type FilterSh
 import { withSharedCard, withSharedPrinting } from "@/lib/share-pick";
 import { useCurrency } from "@/components/currency";
 import { fileSlug, finishOf, reverseStamp, variantLabel } from "@/lib/format";
-import { GAMES, SAMPLE_LIST } from "@/lib/games";
+import { SAMPLE_LIST } from "@/lib/games";
 import { cardBands } from "@/lib/photo-bands";
 import { copyBlob, downloadBlob, firstCardBlob } from "@/lib/pictures";
 import { renderSheet } from "@/lib/sheet";
 import type { ListingLane, Pin, PriceQuote, PublicCard, ResolveItem } from "@/lib/types";
-import { ChevronDownIcon } from "lucide-react";
 
 const STORAGE = "charsi.desk.v1";
 
@@ -458,36 +451,15 @@ export function Desk() {
           <p className="rounded-full bg-[#efe6d4] px-6 py-3 font-serif text-3xl text-[#241c14] italic">Drop the cards</p>
         </div>
       ) : null}
-      <header className="sticky top-0 z-30 border-b border-white/10 bg-[#14110e]/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <div>
-            <h1 className="font-serif text-3xl leading-none italic tracking-tight">Charsi</h1>
-            <p className="mt-1 text-xs text-[#b3a694]">Lay a list down. Every card on it keeps its own numbers.</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <AccountMenu />
-            <DropdownMenu>
-              <DropdownMenuTrigger className="inline-flex h-8 items-center gap-1 rounded-full border border-white/15 px-3 text-sm">
-                Pokémon
-                <ChevronDownIcon className="size-3.5" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-48">
-                {GAMES.map((game) => (
-                  <DropdownMenuItem key={game.id} disabled={game.state !== "live"}>
-                    {game.name}
-                    {game.state === "next" ? <span className="ml-auto text-xs text-[#b3a694]">Next</span> : null}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-      </header>
+      <SiteHeader />
 
       <main className="mx-auto flex w-full max-w-[1200px] flex-col gap-8 px-4 py-6">
         <section className="rounded-[28px] bg-[#efe6d4] p-5 text-[#241c14] shadow-[0_24px_60px_rgba(0,0,0,0.35)] sm:p-7">
           <div className="flex flex-wrap items-baseline justify-between gap-3">
-            <h2 className="font-serif text-3xl italic">The list</h2>
+            <div>
+              <h2 className="font-serif text-3xl italic">The list</h2>
+              <p className="mt-1 text-sm text-[#241c14]/70">Lay a list down. Every card on it keeps its own numbers.</p>
+            </div>
             <button
               type="button"
               className="text-sm underline decoration-[#241c14]/30 underline-offset-4"
