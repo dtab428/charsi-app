@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start -p 4177 -H 0.0.0.0",
     "lint": "eslint",
-    "test": "tsx --test src/lib/resolve.test.ts src/lib/facts.test.ts src/lib/ocr-line.test.ts src/lib/links.test.ts src/lib/share.test.ts src/lib/share-pick.test.ts src/lib/fx.test.ts",
+    "test": "tsx --test src/lib/resolve.test.ts src/lib/facts.test.ts src/lib/ocr-line.test.ts src/lib/links.test.ts src/lib/share.test.ts src/lib/share-pick.test.ts src/lib/fx.test.ts src/lib/ebay-deletion.test.ts",
     "catalog": "python3 scripts/build-catalog.py"
   },
   "dependencies": {
