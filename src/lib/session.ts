@@ -16,8 +16,17 @@ export type SessionUser = {
 
 const production = process.env.NODE_ENV === "production";
 
+export function missingDiscord(): string[] {
+  const missing: string[] = [];
+  if (!process.env.DISCORD_CLIENT_ID?.trim()) missing.push("DISCORD_CLIENT_ID");
+  if (!process.env.DISCORD_CLIENT_SECRET?.trim()) missing.push("DISCORD_CLIENT_SECRET");
+  const session = process.env.SESSION_SECRET?.trim() ?? "";
+  if (session.length < 16) missing.push("SESSION_SECRET");
+  return missing;
+}
+
 export function discordConfigured(): boolean {
-  return Boolean(process.env.DISCORD_CLIENT_ID && process.env.DISCORD_CLIENT_SECRET && secret());
+  return missingDiscord().length === 0;
 }
 
 function secret(): string | null {

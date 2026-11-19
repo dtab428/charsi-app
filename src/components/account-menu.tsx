@@ -36,7 +36,14 @@ export function useSigninNotice() {
     url.searchParams.delete("signin");
     window.history.replaceState(null, "", url.pathname + url.search);
     if (result === "ok") toast.success("Signed in with Discord.");
-    else if (result === "unconfigured") toast.error(`Sign-in needs the site owner to finish setup. Discord redirect to add: ${window.location.origin}/api/auth/discord/callback. Vercel variables to add: DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, SESSION_SECRET. Then redeploy.`, { duration: 20000 });
+    else if (result === "unconfigured") {
+      void fetch("/api/me")
+        .then((response) => (response.ok ? response.json() : null))
+        .then((payload: { missing?: string[] } | null) => {
+          const missing = payload?.missing?.length ? payload.missing.join(", ") : "DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, SESSION_SECRET";
+          toast.error(`This deployment cannot read ${missing}. On the charsi-app project, each one needs Production checked. Saving them leaves the current deployment unchanged, so open Deployments and choose Redeploy.`, { duration: 20000 });
+        });
+    }
     else toast.error("Discord sign-in didn’t finish. Try once more.");
   }, []);
 }
