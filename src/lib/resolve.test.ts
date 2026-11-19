@@ -130,6 +130,20 @@ test("include all expands a set, a finish, and a name", () => {
   assert.ok(groudon.every((item) => item.card?.name.toLowerCase().includes("groudon")));
 });
 
+test("a one-letter slip in Dragonite does not offer Dragonair", () => {
+  const item = one("trr dragonit");
+  assert.equal(item.card?.id, "ex7-15");
+  assert.equal(item.card?.name, "Dark Dragonite");
+  assert.equal(item.alternatives.some((alt) => alt.name.includes("Dragonair")), false);
+  assert.ok(item.corrections.some((correction) => correction.includes("dragonit")));
+});
+
+test("a typo in a name still finds a card that has the same name", () => {
+  const item = one("dark dragonit");
+  assert.equal(item.card?.name, "Dark Dragonite");
+  assert.notEqual(item.status, "unmatched");
+});
+
 test("Tag Team is not a grader and 9.5 stays a grade", () => {
   const team = one("Pikachu & Zekrom Tag Team GX");
   assert.equal(team.grading, null);

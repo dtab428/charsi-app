@@ -32,13 +32,25 @@ function levenshtein(a: string, b: string, max: number): number {
 function fuzzyWords(catalog: IndexedCatalog, token: string): string[] {
   if (token.length < 5 || catalog.tokenIndex.has(token)) return [];
   const max = token.length >= 8 ? 2 : 1;
-  const hits: string[] = [];
+  const hits: { word: string; distance: number }[] = [];
   for (const word of catalog.dictionary.get(token[0] ?? "") ?? []) {
     if (Math.abs(word.length - token.length) > max) continue;
-    if (levenshtein(token, word, max) <= max) hits.push(word);
-    if (hits.length === 3) break;
+    const distance = levenshtein(token, word, max);
+    if (distance <= max) hits.push({ word, distance });
   }
-  return hits;
+  hits.sort((a, b) => a.distance - b.distance || a.word.localeCompare(b.word));
+  return hits.slice(0, 12).map((hit) => hit.word);
+}
+
+function nearWeight(token: string, printed: string): number {
+  if (printed.length < 5 || token.length < 5) return 0;
+  const max = Math.max(printed.length, token.length) >= 8 ? 2 : 1;
+  if (Math.abs(printed.length - token.length) > max) return 0;
+  const distance = levenshtein(token, printed, max);
+  if (distance === 0) return 1;
+  if (distance === 1) return 0.86;
+  if (distance === 2) return 0.6;
+  return 0;
 }
 
 function cardTokens(card: CatalogCard): string[] {
@@ -93,7 +105,7 @@ function findSet(catalog: IndexedCatalog, tokens: string[], number: string | nul
 
 function fuzzySetWord(catalog: IndexedCatalog, token: string): { word: string; sets: string[] } | null {
   if (token.length < 5 || catalog.tokenIndex.has(token)) return null;
-  const max = token.length >= 8 ? 2 : 1;
+  const max = 1;
   let best: { distance: number; word: string; sets: string[] } | null = null;
   let runner = max + 1;
   for (const alias of catalog.aliases) {
@@ -120,6 +132,12 @@ function nameTokensOf(line: ParsedLine, consumed: Set<number>): string[] {
   });
 }
 
+function tokenWeight(card: CatalogCard, token: string): number {
+  const tokens = cardTokens(card);
+  if (tokens.includes(token)) return 1;
+  return Math.max(0, ...tokens.map((printed) => nearWeight(token, printed)));
+}
+
 function scoreCard(card: CatalogCard, nameTokens: string[], setIds: string[], number: string | null, modifiers: string[]): number {
   const tokens = cardTokens(card);
   let nameScore = 0.42;
@@ -130,12 +148,8 @@ function scoreCard(card: CatalogCard, nameTokens: string[], setIds: string[], nu
         hit += 1;
         continue;
       }
-      const near = tokens.find((printed) => {
-        if (printed.length < 5 || token.length < 5) return false;
-        const max = Math.max(printed.length, token.length) >= 8 ? 2 : 1;
-        return Math.abs(printed.length - token.length) <= max && levenshtein(token, printed, max) <= max;
-      });
-      if (near) hit += 0.86;
+      const best = Math.max(0, ...tokens.map((printed) => nearWeight(token, printed)));
+      hit += best;
     }
     const recall = hit / nameTokens.length;
     const joined = nameTokens.join(" ");
@@ -264,9 +278,16 @@ function resolveLine(catalog: IndexedCatalog, line: ParsedLine): ResolveItem {
   const lead = second ? best.score - second.score : 1;
   const locked = sameSlot.length === 1 && best.score >= 0.5;
   const status = locked || (best.score >= 0.72 && lead >= 0.075) ? "matched" : "ambiguous";
+  const closeTokens = nameTokens.filter((token) =>
+    ranked.some((entry) => {
+      const weight = tokenWeight(catalog.cards[entry.index] as CatalogCard, token);
+      return weight >= 0.86 && weight < 1;
+    }),
+  );
   const alternatives = ranked
     .slice(1)
     .filter((entry) => entry.score >= 0.4 && best.score - entry.score <= 0.28)
+    .filter((entry) => closeTokens.every((token) => tokenWeight(catalog.cards[entry.index] as CatalogCard, token) >= 0.86))
     .slice(0, 4)
     .map((entry) => toPublic(catalog, catalog.cards[entry.index] as CatalogCard));
 
