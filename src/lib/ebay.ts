@@ -1,7 +1,14 @@
 import { editionOf, finishOf } from "./format";
-import { editionClause, finishClause, listingMatchesPrinting } from "./listing-match";
+import { editionClause, finishClause, listingMatchesGrade, listingMatchesNumber, listingMatchesPrinting, listingMatchesWear, type GradeAsk } from "./listing-match";
 import { ebaySearchUrl } from "./links";
+import type { Wear } from "./wear";
 import type { Listing, ListingLane, PublicCard } from "./types";
+
+export type ListingScope = {
+  printing?: string | null;
+  grade?: GradeAsk | "raw" | null;
+  wear?: Wear | null;
+};
 
 type Token = { value: string; expires: number };
 let token: Token | null = null;
@@ -25,8 +32,30 @@ function ebayApi(): string {
   return ebaySandbox() ? "https://api.sandbox.ebay.com" : "https://api.ebay.com";
 }
 
-function lane(card: PublicCard, kind: "auction" | "bin", status: ListingLane["status"], listings: Listing[], notice: string | null, printing?: string | null): ListingLane {
-  return { status, listings, searchUrl: ebaySearchUrl(card, kind, null, finishOf(printing) === "reverse" ? "reverse holo" : finishOf(printing) === "holo" ? "holo" : "", null, editionOf(printing)), notice };
+const SHOWN = 24;
+
+function lane(card: PublicCard, kind: "auction" | "bin", status: ListingLane["status"], listings: Listing[], notice: string | null, scope: ListingScope = {}): ListingLane {
+  const printing = scope.printing;
+  const grading = scope.grade && scope.grade !== "raw" ? scope.grade : null;
+  const finish = finishOf(printing) === "reverse" ? "reverse holo" : finishOf(printing) === "holo" ? "holo" : "";
+  return { status, listings, searchUrl: ebaySearchUrl(card, kind, grading, finish, scope.wear ?? null, editionOf(printing)), notice };
+}
+
+function setTerm(name: string): string {
+  const trimmed = name.replace(/\s+base\s+set$/i, "").replace(/\s+(set|series)$/i, "").trim();
+  return trimmed || name;
+}
+
+function searchQuery(card: PublicCard, scope: ListingScope): string {
+  const name = card.name.normalize("NFKD").replace(/[^\u0000-\u007F]/g, " ").replace(/\s+/g, " ").trim();
+  const digits = card.number.trim().replace(/^0+(?=\d)/, "");
+  const number = card.printedTotal && /^\d+$/.test(digits) ? `(${digits}/${card.printedTotal}, #${digits})` : card.number;
+  const grade = scope.grade && scope.grade !== "raw" ? `${scope.grade.company} ${scope.grade.grade}` : scope.grade === "raw" ? "-PSA -BGS -CGC -SGC -TAG -graded" : "";
+  return ["Pokemon", name, setTerm(card.setName), number, finishClause(finishOf(scope.printing)), editionClause(editionOf(scope.printing)), grade]
+    .filter(Boolean)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function safeEbayUrl(value: unknown): string | null {
@@ -96,10 +125,12 @@ export function listingAmount(item: { price?: unknown; currentBidPrice?: unknown
   return { amount: chosen.amount, currency: chosen.currency ?? "USD" };
 }
 
-function listingsFrom(payload: unknown, printing?: string | null): Listing[] {
+function listingsFrom(payload: unknown, card: PublicCard, scope: ListingScope): Listing[] {
   const root = payload && typeof payload === "object" ? (payload as { itemSummaries?: unknown }) : null;
   if (!root || !Array.isArray(root.itemSummaries)) return [];
   const listings: Listing[] = [];
+  const grade = scope.grade ?? null;
+  const wear = scope.wear ?? null;
   for (const entry of root.itemSummaries) {
     if (!entry || typeof entry !== "object") continue;
     const item = entry as Record<string, unknown>;
@@ -111,7 +142,11 @@ function listingsFrom(payload: unknown, printing?: string | null): Listing[] {
     const picture = item.image && typeof item.image === "object" ? (item.image as { imageUrl?: unknown }).imageUrl : thumb?.imageUrl;
     const image = typeof picture === "string" && /^https:\/\/i\.ebayimg\.com\//.test(picture) ? picture : null;
     if (/\b(lot|bundle|collection|bulk)\b/i.test(title)) continue;
-    if (!listingMatchesPrinting(title, printing)) continue;
+    if (/\b(japanese|japan|italian|german|french|korean|chinese|spanish)\b/i.test(title) && !/\benglish\b/i.test(title)) continue;
+    if (!listingMatchesNumber(title, card.number, card.printedTotal)) continue;
+    if (!listingMatchesPrinting(title, scope.printing)) continue;
+    if (!listingMatchesGrade(title, grade)) continue;
+    if (!listingMatchesWear(title, wear)) continue;
     const shipping = Array.isArray(item.shippingOptions) ? (item.shippingOptions[0] as { shippingCost?: { value?: unknown } } | undefined) : undefined;
     const shipValue = numberOrNull(shipping?.shippingCost?.value);
     listings.push({
@@ -126,51 +161,52 @@ function listingsFrom(payload: unknown, printing?: string | null): Listing[] {
       shipping: shipValue == null ? null : shipValue === 0 ? "Free shipping" : `+${shipValue.toFixed(2)} shipping`,
       condition: typeof item.condition === "string" ? item.condition : null,
     });
-    if (listings.length === 8) break;
+    if (listings.length === SHOWN) break;
   }
   return listings;
 }
 
-async function search(card: PublicCard, kind: "auction" | "bin", printing?: string | null): Promise<ListingLane> {
-  const key = `${kind}:${card.id}:${printing ?? ""}`;
+function scopeKey(scope: ListingScope): string {
+  const grade = !scope.grade ? "all" : scope.grade === "raw" ? "raw" : `${scope.grade.company}${scope.grade.grade}`;
+  return `${scope.printing ?? ""}:${grade}:${scope.wear ?? ""}`;
+}
+
+async function search(card: PublicCard, kind: "auction" | "bin", scope: ListingScope = {}): Promise<ListingLane> {
+  const key = `${kind}:${card.id}:${scopeKey(scope)}`;
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < TTL_MS) return hit.lane;
   const access = await appToken();
   if (!access) {
-    return lane(card, kind, "error", [], "eBay didn’t accept the application key.", printing);
+    return lane(card, kind, "error", [], "eBay didn’t accept the application key.", scope);
   }
   const url = new URL(`${ebayApi()}/buy/browse/v1/item_summary/search`);
-  const number = card.printedTotal ? `${card.number}/${card.printedTotal}` : card.number;
-  const edition = editionClause(editionOf(printing));
-  const finish = finishClause(finishOf(printing));
-  url.searchParams.set("q", `Pokemon ${card.name} ${number} ${finish} ${edition}`.replace(/\s+/g, " ").trim());
+  url.searchParams.set("q", searchQuery(card, scope));
   url.searchParams.set("category_ids", "183454");
-  url.searchParams.set("limit", edition || finish ? "20" : "10");
+  url.searchParams.set("limit", "100");
   url.searchParams.set("filter", `buyingOptions:{${kind === "auction" ? "AUCTION" : "FIXED_PRICE"}}`);
   url.searchParams.set("sort", kind === "auction" ? "endingSoonest" : "newlyListed");
   try {
     const response = await fetch(url, {
-      signal: AbortSignal.timeout(10_000),
+      signal: AbortSignal.timeout(12_000),
       headers: {
         authorization: `Bearer ${access}`,
         "X-EBAY-C-MARKETPLACE-ID": "EBAY_US",
       },
     });
     if (!response.ok) {
-      const failed = lane(card, kind, "error", [], "eBay didn’t return listings.", printing);
-      return failed;
+      return lane(card, kind, "error", [], "eBay didn’t return listings.", scope);
     }
-    const listings = listingsFrom(await response.json(), printing);
+    const listings = listingsFrom(await response.json(), card, scope);
     const notice = listings.length || !ebaySandbox() ? null : "Sandbox key connected. eBay’s test site has no live Pokémon listings.";
-    const result = lane(card, kind, listings.length ? "live" : "empty", listings, notice, printing);
+    const result = lane(card, kind, listings.length ? "live" : "empty", listings, notice, scope);
     cache.set(key, { at: Date.now(), lane: result });
     return result;
   } catch {
-    return lane(card, kind, "error", [], "eBay didn’t answer in time.", printing);
+    return lane(card, kind, "error", [], "eBay didn’t answer in time.", scope);
   }
 }
 
-export async function marketFor(cards: { card: PublicCard; printing?: string | null }[]): Promise<{
+export async function marketFor(cards: { card: PublicCard; printing?: string | null; grade?: GradeAsk | "raw" | null; wear?: Wear | null }[]): Promise<{
   configured: boolean;
   sandbox: boolean;
   results: { id: string; printing: string | null; auctions: ListingLane; buyNow: ListingLane }[];
@@ -179,11 +215,11 @@ export async function marketFor(cards: { card: PublicCard; printing?: string | n
     return {
       configured: false,
       sandbox: false,
-      results: cards.map(({ card, printing }) => ({
-        id: card.id,
-        printing: printing ?? null,
-        auctions: lane(card, "auction", "unconfigured", [], null, printing),
-        buyNow: lane(card, "bin", "unconfigured", [], null, printing),
+      results: cards.map((entry) => ({
+        id: entry.card.id,
+        printing: entry.printing ?? null,
+        auctions: lane(entry.card, "auction", "unconfigured", [], null, entry),
+        buyNow: lane(entry.card, "bin", "unconfigured", [], null, entry),
       })),
     };
   }
@@ -193,9 +229,9 @@ export async function marketFor(cards: { card: PublicCard; printing?: string | n
     while (queue.length > 0) {
       const next = queue.shift();
       if (!next) return;
-      const printing = next.printing ?? null;
-      const [auctions, buyNow] = await Promise.all([search(next.card, "auction", printing), search(next.card, "bin", printing)]);
-      results.push({ id: next.card.id, printing, auctions, buyNow });
+      const scope: ListingScope = { printing: next.printing ?? null, grade: next.grade ?? null, wear: next.wear ?? null };
+      const [auctions, buyNow] = await Promise.all([search(next.card, "auction", scope), search(next.card, "bin", scope)]);
+      results.push({ id: next.card.id, printing: scope.printing ?? null, auctions, buyNow });
     }
   });
   await Promise.all(workers);

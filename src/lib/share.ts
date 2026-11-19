@@ -96,11 +96,12 @@ export function deskShareHref(q: string, lines: LineShare[] = [], filters: Parti
   const tokens = lines.map(lineToken);
   while (tokens.length && !tokens[tokens.length - 1]) tokens.pop();
   tokens.forEach((token) => params.append("i", token));
+  const gradedDesk = lines.some((line) => !line.removed && line.card) && lines.filter((line) => !line.removed && line.card).every((line) => line.condition && !/^(raw|all)$/i.test(line.condition));
   if (filters.source && SOURCES.includes(filters.source)) params.set("src", filters.source);
-  if (filters.condition && CONDITION.test(filters.condition) && filters.condition.toLowerCase() !== "raw") {
+  if (filters.condition && CONDITION.test(filters.condition) && filters.condition.toLowerCase() !== "raw" && filters.condition.toLowerCase() !== "all") {
     params.set("cond", filters.condition);
     if (filters.grade && GRADE.test(filters.grade)) params.set("grade", filters.grade);
-  } else if (filters.wear && isWear(filters.wear) && filters.wear.toUpperCase() !== "NM") {
+  } else if (!gradedDesk && filters.wear && isWear(filters.wear) && filters.wear.toUpperCase() !== "NM") {
     params.set("wear", filters.wear.toUpperCase());
   }
   return `/?${params.toString()}`;

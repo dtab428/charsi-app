@@ -113,19 +113,19 @@ export function HoldingToggles({
 }: {
   cardId: string;
   printing: string | null;
-  condition: "raw" | Company;
+  condition: "all" | "raw" | Company;
   grade: string;
-  wear?: Wear;
+  wear?: Wear | "any";
   labeled?: boolean;
 }) {
   const holdings = useContext(HoldingsContext);
   const spec: Spec = {
     cardId,
-    kind: condition === "raw" ? "raw" : "graded",
-    company: condition === "raw" ? null : condition,
-    grade: condition === "raw" ? null : grade,
+    kind: condition === "raw" || condition === "all" ? "raw" : "graded",
+    company: condition === "raw" || condition === "all" ? null : condition,
+    grade: condition === "raw" || condition === "all" ? null : grade,
     printing,
-    wear: condition === "raw" ? wear : null,
+    wear: condition === "raw" && wear !== "any" ? wear : null,
   };
   const lists = holdings?.lists ?? EMPTY;
   const wished = lists.wishlist.some((entry) => same(entry, spec));

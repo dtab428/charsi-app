@@ -8,9 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Pressable } from "@/components/ui/ripple";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCurrency } from "@/components/currency";
-import { buildFeed, COMPANIES, GRADES, type Company, type FeedRow, type FeedSource, type Filters, type SourceFilter } from "@/lib/feed";
-import { editionOf, finishOf } from "@/lib/format";
-import { WEAR_LABEL, WEARS, type Wear } from "@/lib/wear";
+import { buildFeed, COMPANIES, GRADES, type Company, type FeedRow, type FeedSource, type Filters, type SourceFilter, type WearFilter } from "@/lib/feed";
+import { WEAR_LABEL, WEARS } from "@/lib/wear";
 import { cardHref, printingSlug } from "@/lib/printing";
 import type { ListingLane, Pin, PriceQuote, PublicCard } from "@/lib/types";
 
@@ -57,22 +56,22 @@ function Group({ label, children }: { label: string; children: ReactNode }) {
 export function ConditionControls({
   condition,
   grade,
-  wear = "NM",
+  wear = "any",
   onChange,
   onWear,
   label = "Condition",
 }: {
-  condition: "raw" | Company;
+  condition: "all" | "raw" | Company;
   grade: string;
-  wear?: Wear;
-  onChange: (condition: "raw" | Company, grade: string) => void;
-  onWear?: (wear: Wear) => void;
+  wear?: WearFilter;
+  onChange: (condition: "all" | "raw" | Company, grade: string) => void;
+  onWear?: (wear: WearFilter) => void;
   label?: string;
 }) {
-  const grades = condition === "raw" ? [] : GRADES[condition];
-  function pick(next: "raw" | Company) {
-    if (next === "raw") {
-      onChange("raw", grade);
+  const grades = condition === "raw" || condition === "all" ? [] : GRADES[condition];
+  function pick(next: "all" | "raw" | Company) {
+    if (next === "all" || next === "raw") {
+      onChange(next, grade);
       return;
     }
     const allowed = GRADES[next];
@@ -81,6 +80,9 @@ export function ConditionControls({
   return (
     <>
       <Group label={label}>
+        <Chip active={condition === "all"} onClick={() => pick("all")}>
+          All
+        </Chip>
         <Chip active={condition === "raw"} onClick={() => pick("raw")}>
           Raw
         </Chip>
@@ -92,6 +94,9 @@ export function ConditionControls({
       </Group>
       {condition === "raw" && onWear ? (
         <Group label="Wear">
+          <Chip active={wear === "any"} onClick={() => onWear("any")}>
+            Any
+          </Chip>
           {WEARS.map((entry) => (
             <Chip key={entry} active={wear === entry} onClick={() => onWear(entry)}>
               {WEAR_LABEL[entry]}
@@ -127,7 +132,7 @@ export function MarketFilters({ filters, onChange, conditionLabel = "All cards" 
         condition={filters.condition}
         grade={filters.grade}
         wear={filters.wear}
-        onChange={(condition, grade) => onChange({ ...filters, condition, grade, wear: condition === "raw" ? filters.wear : "NM" })}
+        onChange={(condition, grade) => onChange({ ...filters, condition, grade, wear: condition === "raw" ? filters.wear : "any" })}
         onWear={(wear) => onChange({ ...filters, condition: "raw", wear })}
       />
     </div>
@@ -274,17 +279,14 @@ export function CardMarket({
 }) {
   const [showMore, setShowMore] = useState(false);
   const { format } = useCurrency();
-  const edition = editionOf(variantKey);
-  const finish = finishOf(variantKey);
-  const narrowPrinting = Boolean(edition) || finish === "reverse" || finish === "holo";
-  const laneKey = `${card.id}:${variantKey ?? ""}`;
+  const laneKey = `${card.id}:${variantKey ?? ""}:${filters.condition}:${filters.grade}:${filters.wear}`;
   const [filtered, setFiltered] = useState<{ key: string; auctions: ListingLane; buyNow: ListingLane } | null>(null);
-  const wear = filters.wear ?? "NM";
+  const wear = filters.condition === "raw" && filters.wear !== "any" ? filters.wear : "NM";
   const productUrl = quote?.variants.find((entry) => entry.key === variantKey)?.productUrl ?? quote?.productUrl;
   const productId = productIdOf(productUrl);
   const askKey = `${productId ?? ""}:${variantKey ?? ""}:${wear}`;
   const [askState, setAskState] = useState<{ key: string; amount: number | null } | null>(null);
-  const needsAsk = filters.condition === "raw" && wear !== "NM" && productId != null;
+  const needsAsk = filters.condition === "raw" && filters.wear !== "any" && filters.wear !== "NM" && productId != null;
 
   useEffect(() => {
     if (!needsAsk || productId == null) return;
@@ -307,12 +309,13 @@ export function CardMarket({
   }, [needsAsk, productId, card.name, card.setName, card.number, variantKey, wear, askKey]);
 
   useEffect(() => {
-    if (!narrowPrinting || !variantKey) return;
     let live = true;
+    const grade = filters.condition === "raw" ? "raw" : filters.condition === "all" ? null : { company: filters.condition, grade: filters.grade };
+    const askedWear = filters.condition === "raw" && filters.wear !== "any" ? filters.wear : null;
     fetch("/api/market", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ cards: [{ id: card.id, printing: variantKey }] }),
+      body: JSON.stringify({ cards: [{ id: card.id, printing: variantKey, grade, wear: askedWear }] }),
     })
       .then((response) => (response.ok ? response.json() : null))
       .then((payload: { results?: { auctions?: ListingLane; buyNow?: ListingLane }[] } | null) => {
@@ -323,12 +326,12 @@ export function CardMarket({
     return () => {
       live = false;
     };
-  }, [narrowPrinting, card.id, variantKey, laneKey]);
+  }, [card.id, variantKey, laneKey, filters.condition, filters.grade, filters.wear]);
 
   const ask = !needsAsk ? null : askState?.key === askKey ? askState.amount : undefined;
   const matched = filtered?.key === laneKey ? filtered : null;
-  const waiting = Boolean(narrowPrinting && !matched);
-  const holdLane = (lane: ListingLane): ListingLane => ({ ...lane, status: "empty", listings: [], notice: "Checking this printing on eBay." });
+  const waiting = !matched;
+  const holdLane = (lane: ListingLane): ListingLane => ({ ...lane, status: "empty", listings: [], notice: "Checking eBay for this card." });
   const auctionsForFeed = waiting ? holdLane(auctions) : matched ? matched.auctions : auctions;
   const buyNowForFeed = waiting ? holdLane(buyNow) : matched ? matched.buyNow : buyNow;
   const feed = useMemo(
@@ -375,7 +378,7 @@ export function CardMarket({
           ) : null}
         </div>
       ) : null}
-      {filters.condition === "raw" && filters.source === "all" ? <PinEditor pin={pin} onPin={onPin} /> : null}
+      {(filters.condition === "raw" || filters.condition === "all") && filters.source === "all" ? <PinEditor pin={pin} onPin={onPin} /> : null}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { editionClause, finishClause, listingMatchesPrinting } from "./listing-match";
+import { editionClause, finishClause, listingMatchesGrade, listingMatchesNumber, listingMatchesPrinting, listingMatchesWear } from "./listing-match";
 
 test("1st edition keeps a stamped title and drops Unlimited", () => {
   assert.equal(listingMatchesPrinting("Pokemon Fossil 1st Edition Dragonite 4/62 PSA 9", "1stEditionHolofoil"), true);
@@ -34,6 +34,34 @@ test("a reverse holo keeps a reverse title and drops a plain Rare Holo", () => {
   assert.equal(listingMatchesPrinting("Pokemon Card Espeon δ Delta Species Stamped 4/113", "reverseHolofoil"), true);
   assert.equal(finishClause("reverse"), "reverse");
   assert.equal(finishClause("holo"), "-reverse");
+});
+
+test("a number keeps 4/113 and #4, and drops another card’s number", () => {
+  assert.equal(listingMatchesNumber("Espeon 4/113 Reverse Holo", "4", 113), true);
+  assert.equal(listingMatchesNumber("ESPEON #4 REVERSE FOIL PSA 8", "4", 113), true);
+  assert.equal(listingMatchesNumber("Espeon Reverse Holofoil 033/131", "4", 113), false);
+  assert.equal(listingMatchesNumber("Espeon 16/100 Reverse Holo", "4", 113), false);
+  assert.equal(listingMatchesNumber("Charizard #40 PSA 8", "6", 165), false);
+  assert.equal(listingMatchesNumber("Charizard 6/165 PSA 8", "6", 165), true);
+});
+
+test("a grade keeps that slab, raw drops every slab, and all keeps both", () => {
+  const slab = "Espeon 4/113 Reverse Holo PSA 8";
+  const raw = "Espeon 4/113 Reverse Holo Heavily Played";
+  const half = "Charizard Expedition BGS 8.5";
+  assert.equal(listingMatchesGrade(slab, null), true);
+  assert.equal(listingMatchesGrade(raw, null), true);
+  assert.equal(listingMatchesGrade(slab, "raw"), false);
+  assert.equal(listingMatchesGrade(raw, "raw"), true);
+  assert.equal(listingMatchesGrade("Espeon Reverse Foil Graded DSG 1", "raw"), false);
+  assert.equal(listingMatchesGrade(slab, { company: "PSA", grade: "8" }), true);
+  assert.equal(listingMatchesGrade(slab, { company: "PSA", grade: "10" }), false);
+  assert.equal(listingMatchesGrade("CGC 10 PRISTINE Espeon", { company: "PSA", grade: "8" }), false);
+  assert.equal(listingMatchesGrade(half, { company: "BGS", grade: "8" }), false);
+  assert.equal(listingMatchesGrade(half, { company: "BGS", grade: "8.5" }), true);
+  assert.equal(listingMatchesWear(raw, "HP"), true);
+  assert.equal(listingMatchesWear(raw, "NM"), false);
+  assert.equal(listingMatchesWear(raw, null), true);
 });
 
 test("base charizard shadowless keeps unlimited shadowless and drops the 1st edition stamp", () => {

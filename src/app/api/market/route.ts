@@ -1,25 +1,40 @@
 import { getCatalog, toPublic } from "@/lib/catalog";
 import { marketFor } from "@/lib/ebay";
 import { requireViewer } from "@/lib/guard";
+import type { GradeAsk } from "@/lib/listing-match";
 import { limited } from "@/lib/rate-limit";
+import { isWear, type Wear } from "@/lib/wear";
 
 const ID = /^[a-z0-9][a-z0-9-]{1,48}$/i;
 const PRINTING = /^[A-Za-z0-9]{1,40}$/;
+const COMPANIES = new Set(["PSA", "BGS", "CGC", "TAG", "SGC"]);
+const GRADE = /^[0-9]{1,2}(\.5)?$/;
 
-function requested(body: unknown): { id: string; printing: string | null }[] {
+function askedGrade(value: unknown): GradeAsk | "raw" | null {
+  if (value === "raw") return "raw";
+  if (!value || typeof value !== "object") return null;
+  const record = value as { company?: unknown; grade?: unknown };
+  const company = typeof record.company === "string" ? record.company.toUpperCase() : "";
+  const grade = typeof record.grade === "string" ? record.grade : "";
+  if (!COMPANIES.has(company) || !GRADE.test(grade)) return null;
+  return { company, grade };
+}
+
+function requested(body: unknown): { id: string; printing: string | null; grade: GradeAsk | "raw" | null; wear: Wear | null }[] {
   if (!body || typeof body !== "object") return [];
   const record = body as { ids?: unknown; cards?: unknown };
   if (Array.isArray(record.cards)) {
     return record.cards.flatMap((entry) => {
       if (!entry || typeof entry !== "object") return [];
-      const card = entry as { id?: unknown; printing?: unknown };
+      const card = entry as { id?: unknown; printing?: unknown; grade?: unknown; wear?: unknown };
       if (typeof card.id !== "string" || !ID.test(card.id)) return [];
       const printing = typeof card.printing === "string" && PRINTING.test(card.printing) ? card.printing : null;
-      return [{ id: card.id, printing }];
+      const wear = typeof card.wear === "string" && isWear(card.wear) ? card.wear.toUpperCase() as Wear : null;
+      return [{ id: card.id, printing, grade: askedGrade(card.grade), wear }];
     });
   }
   if (!Array.isArray(record.ids)) return [];
-  return record.ids.flatMap((id) => (typeof id === "string" && ID.test(id) ? [{ id, printing: null }] : []));
+  return record.ids.flatMap((id) => (typeof id === "string" && ID.test(id) ? [{ id, printing: null, grade: null, wear: null }] : []));
 }
 
 export async function POST(request: Request) {
@@ -42,7 +57,7 @@ export async function POST(request: Request) {
   const catalog = getCatalog();
   const cards = asked.flatMap((entry) => {
     const card = catalog.cards.find((item) => item.id === entry.id);
-    return card ? [{ card: toPublic(catalog, card), printing: entry.printing }] : [];
+    return card ? [{ card: toPublic(catalog, card), printing: entry.printing, grade: entry.grade, wear: entry.wear }] : [];
   });
 
   try {

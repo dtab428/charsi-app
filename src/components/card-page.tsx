@@ -145,7 +145,7 @@ export function CardPage({ card, printing, siblings = [] }: { card: PublicCard; 
         </Link>
         <div className="grid gap-6 lg:grid-cols-[minmax(0,19rem)_minmax(0,1fr)]">
           <aside inert={hold} className={`flex flex-col gap-4 ${dim}`}>
-            {filters.condition === "raw" ? (
+            {filters.condition === "raw" || filters.condition === "all" ? (
               <CardPicture src={shownPicture(variants, activeKey, finish, card.small, card.large, active.cardId)} alt={card.name} finish={finish} badge={variants.length > 1} stamp={finish === "reverse" ? reverseStamp(card.setId) : ""} width={480} height={670} priority className="rounded-xl bg-[#2a241e]" />
             ) : (
               <Slab company={filters.condition} grade={filters.grade}>
@@ -216,7 +216,7 @@ export function CardPage({ card, printing, siblings = [] }: { card: PublicCard; 
             <div className={`${hold ? "hidden" : "flex"} flex-col gap-5`}>
             <MarketFilters filters={filters} onChange={setFilters} conditionLabel="Condition" />
 
-            {filters.condition === "raw" ? (
+            {filters.condition === "raw" || filters.condition === "all" ? (
               <div className="grid gap-4 md:grid-cols-2">
                 <PriceChart
                   title="TCGplayer market price"

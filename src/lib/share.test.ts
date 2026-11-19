@@ -45,6 +45,12 @@ test("a played raw line keeps its wear", () => {
   assert.equal(back?.filters.wear, "LP");
 });
 
+test("a graded line drops a raw wear filter", () => {
+  const href = deskShareHref("expedition charizard", [{ ...EMPTY_LINE, card: "ecard1-6", condition: "PSA", grade: "8" }], { wear: "MP" });
+  assert.equal(href, "/?q=expedition+charizard&i=ecard1-6__PSA_8");
+  assert.equal(deskShareFrom(href.slice(1))?.filters.wear, null);
+});
+
 test("an explicit raw view on one line survives a graded filter", () => {
   const href = deskShareHref("gardevoir emerald", [{ ...EMPTY_LINE, card: "ex9-4", condition: "raw" }], { condition: "PSA", grade: "9" });
   assert.equal(href, "/?q=gardevoir+emerald&i=ex9-4__raw&cond=PSA&grade=9");

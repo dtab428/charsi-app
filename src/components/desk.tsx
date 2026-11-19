@@ -38,25 +38,29 @@ type Saved = {
 function validFilters(value: Filters | undefined): Filters {
   if (!value) return DEFAULT_FILTERS;
   const source = ["all", "tcgplayer", "cardmarket", "ebay"].includes(value.source) ? value.source : "all";
-  const condition = value.condition === "raw" || COMPANIES.includes(value.condition) ? value.condition : "raw";
+  const condition = value.condition === "all" || value.condition === "raw" || COMPANIES.includes(value.condition) ? value.condition : "all";
   const grade = typeof value.grade === "string" && value.grade.length <= 4 ? value.grade : "10";
-  const wear = isWear(value.wear) ? asWear(value.wear) : "NM";
-  return { source, condition, grade, wear: condition === "raw" ? wear : "NM" };
+  const wear = value.wear === "any" || isWear(value.wear) ? value.wear : "any";
+  return { source, condition, grade, wear: condition === "raw" ? wear : "any" };
 }
 
-function filtersFromShare(shared: FilterShare): Filters {
+function filtersFromShare(shared: FilterShare, lines: LineShare[] = []): Filters {
   const company = COMPANIES.find((entry) => entry === shared.condition?.toUpperCase());
+  const gradedDesk = lines.some((line) => !line.removed && line.card) && lines.filter((line) => !line.removed && line.card).every((line) => line.condition && line.condition.toLowerCase() !== "raw" && line.condition.toLowerCase() !== "all");
+  const condition = company ? company : !gradedDesk && (shared.condition?.toLowerCase() === "raw" || shared.wear) ? "raw" : "all";
+  const wear = condition === "raw" && !gradedDesk && shared.wear && isWear(shared.wear) ? asWear(shared.wear) : "any";
   return validFilters({
     source: (shared.source ?? "all") as Filters["source"],
-    condition: company ?? "raw",
+    condition,
     grade: company && shared.grade ? shared.grade : DEFAULT_FILTERS.grade,
-    wear: company ? "NM" : asWear(shared.wear),
+    wear,
   });
 }
 
 function viewFromShare(line: LineShare): View | null {
   if (!line.condition) return null;
-  if (line.condition.toLowerCase() === "raw") return { condition: "raw", grade: DEFAULT_FILTERS.grade, wear: asWear(line.wear) };
+  if (line.condition.toLowerCase() === "raw") return { condition: "raw", grade: DEFAULT_FILTERS.grade, wear: line.wear && isWear(line.wear) ? asWear(line.wear) : "any" };
+  if (line.condition.toLowerCase() === "all") return { condition: "all", grade: DEFAULT_FILTERS.grade, wear: "any" };
   const company = COMPANIES.find((entry) => entry === line.condition?.toUpperCase());
   if (!company) return null;
   const grade = line.grade && GRADES[company].includes(line.grade) ? line.grade : GRADES[company][0];
@@ -68,7 +72,7 @@ function shareOfFilters(filters: Filters): Partial<FilterShare> {
     source: filters.source === "all" ? null : filters.source,
     condition: filters.condition,
     grade: filters.grade,
-    wear: filters.condition === "raw" && filters.wear !== "NM" ? filters.wear : null,
+    wear: filters.condition === "raw" && filters.wear !== "any" && filters.wear !== "NM" ? filters.wear : null,
   };
 }
 
@@ -81,8 +85,8 @@ function shareOfLines(items: DeskItem[], slots: number): LineShare[] {
       card: item.card?.id ?? null,
       printing: item.picked ? printingSlug(item.picked) : null,
       condition: item.view?.condition ?? null,
-      grade: item.view && item.view.condition !== "raw" ? item.view.grade : null,
-      wear: item.view?.condition === "raw" && item.view.wear !== "NM" ? item.view.wear : null,
+      grade: item.view && item.view.condition !== "raw" && item.view.condition !== "all" ? item.view.grade : null,
+      wear: item.view?.condition === "raw" && item.view.wear !== "NM" && item.view.wear !== "any" ? item.view.wear : null,
       off: Boolean(item.card) && !item.included,
     };
   }
@@ -131,7 +135,7 @@ export function Desk() {
         setTitle(saved.title ?? "");
         setColumns(saved.columns === 2 ? 2 : 1);
       }
-      setFilters(opened ? filtersFromShare(opened.filters) : validFilters(saved?.filters));
+      setFilters(opened ? filtersFromShare(opened.filters, opened.lines) : validFilters(saved?.filters));
       const opening = opened?.q || saved?.text || "";
       if (opening.trim()) {
         setText(opening);
@@ -426,7 +430,7 @@ export function Desk() {
     if (!item.card) return sum;
     const condition = item.view?.condition ?? filters.condition;
     const wear = item.view?.wear ?? filters.wear;
-    if (condition === "raw" && wear !== "NM") return sum;
+    if (condition === "raw" && wear !== "NM" && wear !== "any") return sum;
     const amount = marketAmount(item.modifiers, quotes[item.card.id], item.finish, item.picked);
     return amount == null ? sum : sum + amount * item.quantity;
   }, 0);
@@ -434,7 +438,7 @@ export function Desk() {
     if (!item.card) return false;
     const condition = item.view?.condition ?? filters.condition;
     const wear = item.view?.wear ?? filters.wear;
-    if (condition === "raw" && wear !== "NM") return false;
+    if (condition === "raw" && wear !== "NM" && wear !== "any") return false;
     return marketAmount(item.modifiers, quotes[item.card.id], item.finish, item.picked) != null;
   }).length;
   const listWorth = priced > 0 ? format(worth, "USD") : "";

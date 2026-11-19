@@ -29,19 +29,19 @@ export function AddToCollection({
 }: {
   card: PublicCard;
   printing: string | null;
-  initialCondition?: "raw" | Company;
+  initialCondition?: "all" | "raw" | Company;
   initialGrade?: string;
-  initialWear?: Wear;
+  initialWear?: Wear | "any";
   size?: "sm" | "default";
   variant?: "secondary" | "default";
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [kind, setKind] = useState<"raw" | "graded">(initialCondition === "raw" ? "raw" : "graded");
-  const [company, setCompany] = useState<Company>(initialCondition === "raw" ? "PSA" : initialCondition);
+  const [kind, setKind] = useState<"raw" | "graded">(initialCondition === "raw" || initialCondition === "all" ? "raw" : "graded");
+  const [company, setCompany] = useState<Company>(initialCondition === "raw" || initialCondition === "all" ? "PSA" : initialCondition);
   const [grade, setGrade] = useState(initialGrade);
   const [quantity, setQuantity] = useState(1);
-  const [wear, setWear] = useState<Wear>(initialWear);
+  const [wear, setWear] = useState<Wear>(initialWear === "any" ? "NM" : initialWear);
   const [saving, setSaving] = useState<"collection" | "wishlist" | null>(null);
 
   function pickCompany(next: Company) {
@@ -73,10 +73,10 @@ export function AddToCollection({
       });
       setOpen(false);
       setQuantity(1);
-      setKind(initialCondition === "raw" ? "raw" : "graded");
-      setCompany(initialCondition === "raw" ? "PSA" : initialCondition);
+      setKind(initialCondition === "raw" || initialCondition === "all" ? "raw" : "graded");
+      setCompany(initialCondition === "raw" || initialCondition === "all" ? "PSA" : initialCondition);
       setGrade(initialGrade);
-      setWear(initialWear);
+      setWear(initialWear === "any" ? "NM" : initialWear);
     } catch {
       toast.error("That didn’t save.");
     } finally {

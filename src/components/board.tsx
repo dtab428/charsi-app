@@ -17,7 +17,7 @@ import { emptyLane } from "@/lib/links";
 import type { Wear } from "@/lib/wear";
 import type { ListingLane, Pin, PriceQuote, PublicCard, ResolveItem } from "@/lib/types";
 
-export type View = { condition: "raw" | Company; grade: string; wear: Wear };
+export type View = { condition: "all" | "raw" | Company; grade: string; wear: Wear | "any" };
 
 export type ZoomShot = { card: PublicCard; src: string; finish: Finish | null; stamp: string; badge: boolean };
 
@@ -200,7 +200,7 @@ function CardDesk({
         <div inert={hold} className={`${dim} ${columns === 2 ? "w-24 shrink-0 self-start sm:w-32" : "w-24 shrink-0 self-start sm:w-40 lg:w-48"}`}>
           {shown ? (
             <div>
-              <Face card={shown} src={picture} finish={finish} badge={printings.length > 1} slab={view.condition === "raw" ? null : { company: view.condition, grade: view.grade }} onZoom={onZoom} />
+              <Face card={shown} src={picture} finish={finish} badge={printings.length > 1} slab={view.condition === "raw" || view.condition === "all" ? null : { company: view.condition, grade: view.grade }} onZoom={onZoom} />
               {finish === "reverse" && reverseStamp(shown.setId) ? <p className="mt-1 text-center text-[10px] leading-tight text-[#b3a694]">Set logo placed on the holo photo.</p> : null}
             </div>
           ) : (
@@ -296,7 +296,7 @@ function CardDesk({
                   condition={view.condition}
                   grade={view.grade}
                   wear={view.wear}
-                  onChange={(condition, grade) => onView(item.key, { condition, grade, wear: condition === "raw" ? view.wear : "NM" })}
+                  onChange={(condition, grade) => onView(item.key, { condition, grade, wear: condition === "raw" ? view.wear : "any" })}
                   onWear={(wear) => onView(item.key, { condition: "raw", grade: view.grade, wear })}
                 />
               </div>
