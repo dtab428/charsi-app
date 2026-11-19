@@ -1,5 +1,5 @@
 import { editionOf, finishOf } from "./format";
-import { editionClause, listingMatchesPrinting } from "./listing-match";
+import { editionClause, finishClause, listingMatchesPrinting } from "./listing-match";
 import { ebaySearchUrl } from "./links";
 import type { Listing, ListingLane, PublicCard } from "./types";
 
@@ -142,9 +142,10 @@ async function search(card: PublicCard, kind: "auction" | "bin", printing?: stri
   const url = new URL(`${ebayApi()}/buy/browse/v1/item_summary/search`);
   const number = card.printedTotal ? `${card.number}/${card.printedTotal}` : card.number;
   const edition = editionClause(editionOf(printing));
-  url.searchParams.set("q", `Pokemon ${card.name} ${number} ${edition}`.replace(/\s+/g, " ").trim());
+  const finish = finishClause(finishOf(printing));
+  url.searchParams.set("q", `Pokemon ${card.name} ${number} ${finish} ${edition}`.replace(/\s+/g, " ").trim());
   url.searchParams.set("category_ids", "183454");
-  url.searchParams.set("limit", edition ? "20" : "10");
+  url.searchParams.set("limit", edition || finish ? "20" : "10");
   url.searchParams.set("filter", `buyingOptions:{${kind === "auction" ? "AUCTION" : "FIXED_PRICE"}}`);
   url.searchParams.set("sort", kind === "auction" ? "endingSoonest" : "newlyListed");
   try {

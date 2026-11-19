@@ -9,7 +9,7 @@ import { Pressable } from "@/components/ui/ripple";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCurrency } from "@/components/currency";
 import { buildFeed, COMPANIES, GRADES, type Company, type FeedRow, type FeedSource, type Filters, type SourceFilter } from "@/lib/feed";
-import { editionOf } from "@/lib/format";
+import { editionOf, finishOf } from "@/lib/format";
 import { WEAR_LABEL, WEARS, type Wear } from "@/lib/wear";
 import { cardHref, printingSlug } from "@/lib/printing";
 import type { ListingLane, Pin, PriceQuote, PublicCard } from "@/lib/types";
@@ -275,6 +275,8 @@ export function CardMarket({
   const [showMore, setShowMore] = useState(false);
   const { format } = useCurrency();
   const edition = editionOf(variantKey);
+  const finish = finishOf(variantKey);
+  const narrowPrinting = Boolean(edition) || finish === "reverse" || finish === "holo";
   const laneKey = `${card.id}:${variantKey ?? ""}`;
   const [filtered, setFiltered] = useState<{ key: string; auctions: ListingLane; buyNow: ListingLane } | null>(null);
   const wear = filters.wear ?? "NM";
@@ -305,7 +307,7 @@ export function CardMarket({
   }, [needsAsk, productId, card.name, card.setName, card.number, variantKey, wear, askKey]);
 
   useEffect(() => {
-    if (!edition) return;
+    if (!narrowPrinting || !variantKey) return;
     let live = true;
     fetch("/api/market", {
       method: "POST",
@@ -321,11 +323,11 @@ export function CardMarket({
     return () => {
       live = false;
     };
-  }, [edition, card.id, variantKey, laneKey]);
+  }, [narrowPrinting, card.id, variantKey, laneKey]);
 
   const ask = !needsAsk ? null : askState?.key === askKey ? askState.amount : undefined;
   const matched = filtered?.key === laneKey ? filtered : null;
-  const waiting = Boolean(edition && !matched);
+  const waiting = Boolean(narrowPrinting && !matched);
   const holdLane = (lane: ListingLane): ListingLane => ({ ...lane, status: "empty", listings: [], notice: "Checking this printing on eBay." });
   const auctionsForFeed = waiting ? holdLane(auctions) : matched ? matched.auctions : auctions;
   const buyNowForFeed = waiting ? holdLane(buyNow) : matched ? matched.buyNow : buyNow;

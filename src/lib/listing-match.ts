@@ -1,4 +1,4 @@
-import { editionOf, finishOf, type Edition } from "./format";
+import { editionOf, finishOf, type Edition, type Finish } from "./format";
 
 // Alt keeps a printing by asking for that printing and rejecting the other one.
 // A plain name-and-number search ranks Unlimited next to 1st edition.
@@ -7,6 +7,13 @@ export function editionClause(edition: Edition | null): string {
   if (edition === "unlimited") return "Unlimited -1st -shadowless";
   // Unlimited shadowless is the shadowless printing that is not 1st edition, so the word unlimited stays.
   if (edition === "shadowless") return "shadowless -1st -first";
+  return "";
+}
+
+// Reverse holo has to be named. A plain “Rare Holo” is the regular holo.
+export function finishClause(finish: Finish | null): string {
+  if (finish === "reverse") return "reverse";
+  if (finish === "holo") return "-reverse";
   return "";
 }
 
@@ -23,7 +30,8 @@ function saysShadowless(title: string): boolean {
 }
 
 function saysReverse(title: string): boolean {
-  return /\breverse\b/i.test(title);
+  // EX-era sellers often say “stamped” for the reverse holo and never say reverse.
+  return /\breverse\b/i.test(title) || /\brev\.?\s+holo\b/i.test(title) || /\bstamped\b/i.test(title);
 }
 
 function saysNonHolo(title: string): boolean {

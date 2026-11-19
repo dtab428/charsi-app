@@ -36,7 +36,13 @@ for expansion in sets:
         add(expansion["ptcgoCode"], expansion["id"])
     add(expansion["id"], expansion["id"])
 
-for phrase, set_id in {"base set": "base1", "pokemon 151": "sv3pt5", "pokemon go": "pgo"}.items():
+for phrase, set_id in {
+    "base set": "base1",
+    "pokemon 151": "sv3pt5",
+    "pokemon go": "pgo",
+    "expedition": "ecard1",
+    "expedition base": "ecard1",
+}.items():
     add(phrase, set_id)
 
 cards = []

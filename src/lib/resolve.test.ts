@@ -66,6 +66,13 @@ test("corrects a misspelled set and still offers the printings", () => {
   assert.deepEqual(ids, ["ecard3-32", "ecard3-H30"]);
 });
 
+test("charizard expedition finds the 2002 Expedition Charizards", () => {
+  const item = one("charizard expedition");
+  assert.equal(item.card?.setId, "ecard1");
+  const ids = [item.card?.id, ...item.alternatives.map((alt) => alt.id)].sort();
+  assert.deepEqual(ids, ["ecard1-39", "ecard1-40", "ecard1-6"]);
+});
+
 test("leaves a nonsense line unmatched", () => {
   const item = one("blorbo zzz 999");
   assert.equal(item.status, "unmatched");

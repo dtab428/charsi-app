@@ -674,7 +674,7 @@ export async function quotesFor(ids: string[]): Promise<Record<string, PriceQuot
   const result: Record<string, PriceQuote | null> = {};
   for (const id of ids) {
     const hit = cache.get(id);
-    const freshFor = hit?.quote ? TTL_MS : MISS_TTL_MS;
+    const freshFor = hasMarket(hit?.quote) ? TTL_MS : MISS_TTL_MS;
     if (hit && now - hit.at < freshFor) result[id] = hit.quote;
     else missing.push(id);
   }

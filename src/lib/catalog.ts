@@ -20,6 +20,22 @@ type CatalogFile = {
   cards: CatalogCard[];
 };
 
+// Collectors say “Expedition,” while the catalog name is “Expedition Base Set.”
+const NICKNAMES: { phrase: string; sets: string[] }[] = [
+  { phrase: "expedition", sets: ["ecard1"] },
+  { phrase: "expedition base", sets: ["ecard1"] },
+];
+
+function withNicknames(aliases: Alias[]): Alias[] {
+  const seen = new Set(aliases.map((alias) => alias.phrase));
+  const extra = NICKNAMES.flatMap((nickname) => {
+    const phrase = normalize(nickname.phrase);
+    if (!phrase || seen.has(phrase)) return [];
+    return [{ phrase, words: phrase.split(" ").filter(Boolean), sets: nickname.sets }];
+  });
+  return [...aliases, ...extra].sort((a, b) => b.words.length - a.words.length || b.phrase.length - a.phrase.length);
+}
+
 const globalCache = globalThis as unknown as { __charsiCatalog?: IndexedCatalog };
 
 export function getCatalog(): IndexedCatalog {
@@ -52,13 +68,14 @@ export function getCatalog(): IndexedCatalog {
     else dictionary.set(letter, [word]);
   }
 
-  const aliases = raw.aliases
-    .map((alias) => {
-      const phrase = normalize(alias.phrase);
-      return { phrase, words: phrase.split(" ").filter(Boolean), sets: alias.sets };
-    })
-    .filter((alias) => alias.words.length > 0)
-    .sort((a, b) => b.words.length - a.words.length || b.phrase.length - a.phrase.length);
+  const aliases = withNicknames(
+    raw.aliases
+      .map((alias) => {
+        const phrase = normalize(alias.phrase);
+        return { phrase, words: phrase.split(" ").filter(Boolean), sets: alias.sets };
+      })
+      .filter((alias) => alias.words.length > 0),
+  );
 
   globalCache.__charsiCatalog = { cards: raw.cards, sets, aliases, tokenIndex, dictionary, setIndex };
   return globalCache.__charsiCatalog;
