@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import type { Company } from "@/lib/feed";
+import { asWear, isWear, type Wear } from "@/lib/wear";
 import { Check, Heart, Plus } from "lucide-react";
 
 type Saved = {
@@ -13,6 +14,7 @@ type Saved = {
   company: string | null;
   grade: string | null;
   printing: string | null;
+  wear: string | null;
 };
 
 type Spec = Saved extends infer T ? Omit<T, "id"> : never;
@@ -29,7 +31,7 @@ function savedFrom(value: unknown): Saved[] {
     const row = entry as Partial<Saved>;
     if (typeof row.id !== "string" || typeof row.cardId !== "string") return [];
     if (row.kind !== "raw" && row.kind !== "graded") return [];
-    return [{ id: row.id, cardId: row.cardId, kind: row.kind, company: row.company ?? null, grade: row.grade ?? null, printing: row.printing ?? null }];
+    return [{ id: row.id, cardId: row.cardId, kind: row.kind, company: row.company ?? null, grade: row.grade ?? null, printing: row.printing ?? null, wear: row.kind === "raw" && isWear(row.wear) ? asWear(row.wear) : null }];
   });
 }
 
@@ -61,7 +63,7 @@ export function HoldingsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   async function toggle(bucket: "wishlist" | "collection", spec: Spec) {
-    const lock = `${bucket}:${spec.cardId}:${spec.kind}:${spec.company ?? ""}:${spec.grade ?? ""}:${spec.printing ?? ""}`;
+    const lock = `${bucket}:${spec.cardId}:${spec.kind}:${spec.company ?? ""}:${spec.grade ?? ""}:${spec.printing ?? ""}:${spec.wear ?? ""}`;
     if (pending.current.has(lock)) return;
     pending.current.add(lock);
     try {
@@ -97,7 +99,8 @@ export function HoldingsProvider({ children }: { children: ReactNode }) {
 }
 
 function same(entry: Saved, spec: Spec): boolean {
-  return entry.cardId === spec.cardId && entry.kind === spec.kind && (entry.company ?? null) === spec.company && (entry.grade ?? null) === spec.grade && (entry.printing ?? null) === spec.printing;
+  const wear = entry.kind === "raw" && (entry.wear ?? "NM") === (spec.wear ?? "NM");
+  return entry.cardId === spec.cardId && entry.kind === spec.kind && (entry.company ?? null) === spec.company && (entry.grade ?? null) === spec.grade && (entry.printing ?? null) === spec.printing && (entry.kind !== "raw" || wear);
 }
 
 export function HoldingToggles({
@@ -105,12 +108,14 @@ export function HoldingToggles({
   printing,
   condition,
   grade,
+  wear = "NM",
   labeled = false,
 }: {
   cardId: string;
   printing: string | null;
   condition: "raw" | Company;
   grade: string;
+  wear?: Wear;
   labeled?: boolean;
 }) {
   const holdings = useContext(HoldingsContext);
@@ -120,6 +125,7 @@ export function HoldingToggles({
     company: condition === "raw" ? null : condition,
     grade: condition === "raw" ? null : grade,
     printing,
+    wear: condition === "raw" ? wear : null,
   };
   const lists = holdings?.lists ?? EMPTY;
   const wished = lists.wishlist.some((entry) => same(entry, spec));

@@ -11,7 +11,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { findPrinting, cardHref, printingName } from "@/lib/printing";
 import { pickVariant, shownPicture } from "@/lib/facts";
 import { useCurrency } from "@/components/currency";
-import { finishOf, reverseStamp } from "@/lib/format";
+import { finishOf, releaseYear, reverseStamp } from "@/lib/format";
+import { WEAR_LABEL, isWear } from "@/lib/wear";
 import type { PriceQuote, PublicCard } from "@/lib/types";
 
 type Entry = {
@@ -21,6 +22,7 @@ type Entry = {
   company: string | null;
   grade: string | null;
   printing: string | null;
+  wear?: string | null;
   quantity: number;
   addedAt: number;
   card: PublicCard;
@@ -57,16 +59,15 @@ function Tile({ entry, value, onQuantity, onRemove }: { entry: Entry; value: num
           {entry.card.name}
         </a>
         <p className="mt-0.5 text-xs text-[#b3a694]">
-          {entry.card.setName} · {entry.card.number}
-          {entry.printing ? ` · ${printingName(entry.printing)}` : ""}
+          {[entry.card.setName, releaseYear(entry.card.releaseDate), entry.card.printedTotal ? `${entry.card.number}/${entry.card.printedTotal}` : entry.card.number, entry.printing ? printingName(entry.printing) : ""].filter(Boolean).join(" · ")}
         </p>
         {finish === "reverse" && reverseStamp(entry.card.setId) ? <p className="text-[10px] text-[#b3a694]">Set logo placed on the holo photo.</p> : null}
         <p className="mt-2">
           <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${entry.kind === "graded" ? "bg-[#d4a574]/25 text-[#ecd0ab]" : "bg-white/10 text-[#f3ecdf]"}`}>
-            {entry.kind === "graded" ? `${entry.company} ${entry.grade}` : "Raw"}
+            {entry.kind === "graded" ? `${entry.company} ${entry.grade}` : isWear(entry.wear) ? WEAR_LABEL[entry.wear] : "Raw"}
           </span>
         </p>
-        {value != null ? <p className="mt-2 text-sm text-[#b3a694]">Market {format(value, "USD")} each</p> : null}
+        {value != null ? <p className="mt-2 text-sm text-[#b3a694]">Near Mint market {format(value, "USD")} each</p> : null}
         <div className="mt-auto flex items-center gap-2 pt-3">
           <Button type="button" size="sm" variant="outline" aria-label="One fewer" disabled={entry.quantity <= 1} onClick={() => onQuantity(entry, entry.quantity - 1)}>
             −

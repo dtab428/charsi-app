@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { COMPANIES, GRADES, type Company } from "@/lib/feed";
 import { printingName } from "@/lib/printing";
+import { WEAR_LABEL, WEARS, type Wear } from "@/lib/wear";
 import type { PublicCard } from "@/lib/types";
 
 function Choice({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
@@ -22,6 +23,7 @@ export function AddToCollection({
   printing,
   initialCondition = "raw",
   initialGrade = "10",
+  initialWear = "NM",
   size = "sm",
   variant = "secondary",
 }: {
@@ -29,6 +31,7 @@ export function AddToCollection({
   printing: string | null;
   initialCondition?: "raw" | Company;
   initialGrade?: string;
+  initialWear?: Wear;
   size?: "sm" | "default";
   variant?: "secondary" | "default";
 }) {
@@ -38,6 +41,7 @@ export function AddToCollection({
   const [company, setCompany] = useState<Company>(initialCondition === "raw" ? "PSA" : initialCondition);
   const [grade, setGrade] = useState(initialGrade);
   const [quantity, setQuantity] = useState(1);
+  const [wear, setWear] = useState<Wear>(initialWear);
   const [saving, setSaving] = useState<"collection" | "wishlist" | null>(null);
 
   function pickCompany(next: Company) {
@@ -52,7 +56,7 @@ export function AddToCollection({
       const response = await fetch(destination === "collection" ? "/api/collection" : "/api/wishlist", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ cardId: card.id, kind, company: kind === "graded" ? company : null, grade: kind === "graded" ? grade : null, printing, quantity }),
+        body: JSON.stringify({ cardId: card.id, kind, company: kind === "graded" ? company : null, grade: kind === "graded" ? grade : null, printing, quantity, wear: kind === "raw" ? wear : null }),
       });
       if (response.status === 401) {
         toast.error("Sign in with Discord first, then add it.");
@@ -63,7 +67,7 @@ export function AddToCollection({
         toast.error(payload.error ?? "That didn’t save.");
         return;
       }
-      const label = kind === "graded" ? `${company} ${grade}` : "raw";
+      const label = kind === "graded" ? `${company} ${grade}` : WEAR_LABEL[wear];
       toast.success(`${label} ${card.name} saved to ${where}.`, {
         action: { label: "Open", onClick: () => router.push(destination === "collection" ? "/collection" : "/wishlist") },
       });
@@ -72,6 +76,7 @@ export function AddToCollection({
       setKind(initialCondition === "raw" ? "raw" : "graded");
       setCompany(initialCondition === "raw" ? "PSA" : initialCondition);
       setGrade(initialGrade);
+      setWear(initialWear);
     } catch {
       toast.error("That didn’t save.");
     } finally {
@@ -102,6 +107,18 @@ export function AddToCollection({
                 Graded
               </Choice>
             </div>
+            {kind === "raw" ? (
+              <div>
+                <p className="mb-1.5 text-[10px] tracking-[0.14em] text-[#b3a694] uppercase">Wear</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {WEARS.map((entry) => (
+                    <Choice key={entry} active={wear === entry} onClick={() => setWear(entry)}>
+                      {WEAR_LABEL[entry]}
+                    </Choice>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             {kind === "graded" ? (
               <>
                 <div>
@@ -138,10 +155,10 @@ export function AddToCollection({
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Button type="button" className="flex-1" onClick={() => void save("collection")} disabled={saving != null}>
-                {saving === "collection" ? "Adding…" : kind === "graded" ? `Collection · ${company} ${grade}` : "Collection · raw"}
+                {saving === "collection" ? "Adding…" : kind === "graded" ? `Collection · ${company} ${grade}` : `Collection · ${WEAR_LABEL[wear]}`}
               </Button>
               <Button type="button" variant="secondary" className="flex-1" onClick={() => void save("wishlist")} disabled={saving != null}>
-                {saving === "wishlist" ? "Adding…" : kind === "graded" ? `Wishlist · ${company} ${grade}` : "Wishlist · raw"}
+                {saving === "wishlist" ? "Adding…" : kind === "graded" ? `Wishlist · ${company} ${grade}` : `Wishlist · ${WEAR_LABEL[wear]}`}
               </Button>
             </div>
           </div>

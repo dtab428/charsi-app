@@ -113,7 +113,7 @@ function Actions({
           Save
         </Button>
       ) : null}
-      {item.card ? <AddToCollection key={`${filters.condition}-${filters.grade}-${printing ?? ""}`} card={item.card} printing={printing} initialCondition={filters.condition} initialGrade={filters.grade} /> : null}
+      {item.card ? <AddToCollection key={`${filters.condition}-${filters.grade}-${filters.wear}-${printing ?? ""}`} card={item.card} printing={printing} initialCondition={filters.condition} initialGrade={filters.grade} initialWear={filters.wear} /> : null}
       <Button type="button" size="sm" variant="ghost" onClick={() => onRemove(item.key)}>
         Remove
       </Button>
@@ -220,7 +220,7 @@ function CardDesk({
                 )}
               </h3>
               {item.quantity > 1 ? <span className="text-sm text-[#d4a574]">×{item.quantity}</span> : null}
-              {shown ? <span className="ml-auto"><HoldingToggles cardId={shown.id} printing={printing} condition={view.condition} grade={view.grade} /></span> : null}
+              {shown ? <span className="ml-auto"><HoldingToggles cardId={shown.id} printing={printing} condition={view.condition} grade={view.grade} wear={view.wear} /></span> : null}
             </div>
             {shown ? (
               <p className="mt-1 text-xs text-[#b3a694]">

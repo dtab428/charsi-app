@@ -1,4 +1,5 @@
 import { getCatalog, toPublic } from "@/lib/catalog";
+import { holoScan } from "@/lib/facts";
 import {
   addToCollection,
   FullError,
@@ -12,6 +13,7 @@ import { GRADES, type Company } from "@/lib/feed";
 import { requireViewer } from "@/lib/guard";
 import { limited } from "@/lib/rate-limit";
 import { currentUser, sameOrigin } from "@/lib/session";
+import { asWear, isWear } from "@/lib/wear";
 
 const noStore = { "cache-control": "private, no-store" };
 
@@ -20,7 +22,11 @@ function view(entries: CollectionEntry[]) {
   const index = new Map(catalog.cards.map((card) => [card.id, card]));
   return entries.flatMap((entry) => {
     const card = index.get(entry.cardId);
-    return card ? [{ ...entry, card: toPublic(catalog, card) }] : [];
+    if (!card) return [];
+    const pub = toPublic(catalog, card);
+    const family = catalog.cards.filter((other) => other.set === card.set && other.name.toLowerCase() === card.name.toLowerCase());
+    const large = holoScan(pub, entry.printing, family.map((other) => ({ id: other.id, rarity: other.rarity, large: other.large })));
+    return [{ ...entry, card: { ...pub, large } }];
   });
 }
 
@@ -75,9 +81,10 @@ export function holdingRoute(bucket: Bucket, name: string) {
       }
 
       const printing = typeof input.printing === "string" && /^[a-z0-9-]{1,40}$/.test(input.printing) ? input.printing : null;
+      const wear = input.kind === "raw" && isWear(typeof input.wear === "string" ? input.wear : null) ? asWear(typeof input.wear === "string" ? input.wear : null) : null;
 
       try {
-        const entries = await addToCollection(checked.user.id, { cardId, kind: input.kind, company, grade, printing, quantity }, bucket);
+        const entries = await addToCollection(checked.user.id, { cardId, kind: input.kind, company, grade, printing, quantity, wear }, bucket);
         return Response.json({ entries: view(entries) }, { headers: noStore });
       } catch (error) {
         if (error instanceof FullError) return Response.json({ error: `${name} is full.` }, { status: 409 });

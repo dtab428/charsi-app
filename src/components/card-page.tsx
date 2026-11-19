@@ -157,9 +157,10 @@ export function CardPage({ card, printing, siblings = [] }: { card: PublicCard; 
               printing={activeKey ? printingSlug(activeKey) : null}
               initialCondition={filters.condition}
               initialGrade={filters.grade}
+              initialWear={filters.wear}
               size="default"
               variant="default"
-              key={`${filters.condition}-${filters.grade}-${activeKey}`}
+              key={`${filters.condition}-${filters.grade}-${filters.wear}-${activeKey}`}
             />
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 rounded-2xl border border-white/10 bg-[#1c1814]/80 p-4 text-sm">
               {facts(card).map(([label, value]) => (
@@ -181,7 +182,7 @@ export function CardPage({ card, printing, siblings = [] }: { card: PublicCard; 
                     : `${[card.setName, releaseYear(card.releaseDate), card.printedTotal ? `${card.number}/${card.printedTotal}` : card.number].filter(Boolean).join(" · ")}${variants.length > 1 && selected ? ` · ${variantLabel(selected.key)}` : ""}`}
                 </p>
               </div>
-              <HoldingToggles cardId={card.id} printing={activeKey ? printingSlug(activeKey) : null} condition={filters.condition} grade={filters.grade} labeled />
+              <HoldingToggles cardId={card.id} printing={activeKey ? printingSlug(activeKey) : null} condition={filters.condition} grade={filters.grade} wear={filters.wear} labeled />
             </div>
 
             {asking && waiting ? (

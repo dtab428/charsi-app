@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { finishTwins, keptAfterChoice, mergePrintings, printingFamily, resolveActive, shownPicture, withFinishFlags } from "./facts";
+import { finishTwins, holoScan, keptAfterChoice, mergePrintings, printingFamily, resolveActive, shownPicture, withFinishFlags } from "./facts";
 import { preferPricedVariants } from "./prices";
 import type { PriceQuote, PublicCard } from "./types";
 import { finishOf, reverseStamp, variantLabel, withoutGenericEditions } from "./format";
@@ -29,6 +29,14 @@ test("an illustration rare stays its own card, and a holo stays a printing of th
   const plain = { id: "ecard3-32", setId: "ecard3", name: "Umbreon", rarity: "Rare" };
   const holo = { id: "ecard3-H30", setId: "ecard3", name: "Umbreon", rarity: "Rare Holo" };
   assert.deepEqual(printingFamily(plain, [holo]).map((card) => card.id), ["ecard3-32", "ecard3-H30"]);
+});
+
+test("a holofoil copy saved on the non-holo card uses the holo scan", () => {
+  const plain = { id: "ecard3-32", rarity: "Rare", large: "moon" };
+  const holo = { id: "ecard3-H30", rarity: "Rare Holo", large: "crystal" };
+  assert.equal(holoScan(plain, "holofoil", [plain, holo]), "crystal");
+  assert.equal(holoScan(holo, "holo", [plain, holo]), "crystal");
+  assert.equal(holoScan(plain, "normal", [plain, holo]), "moon");
 });
 
 test("a holo-only price does not grow a fake non-holo", () => {

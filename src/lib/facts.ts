@@ -15,6 +15,13 @@ function askedEdition(modifiers: string[]): Edition | null {
   return null;
 }
 
+export function holoScan<T extends { id: string; rarity: string; large: string }>(card: T, printing: string | null, family: T[]): string {
+  if (finishOf(printing) !== "holo") return card.large;
+  if (/holo/i.test(card.rarity) && !/reverse/i.test(card.rarity)) return card.large;
+  const twin = family.find((other) => other.id !== card.id && finishTwins(card.rarity, other.rarity) && /holo/i.test(other.rarity));
+  return twin?.large || card.large;
+}
+
 export function shownPicture(variants: VariantQuote[], activeKey: string | null, finish: Finish | null, small: string, large: string): string {
   const edition = editionOf(activeKey);
   // On a lot of older sets the hires scan is the 1st-edition copy and the
