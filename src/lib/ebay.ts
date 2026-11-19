@@ -1,3 +1,5 @@
+import { editionOf, finishOf } from "./format";
+import { editionClause, listingMatchesPrinting } from "./listing-match";
 import { ebaySearchUrl } from "./links";
 import type { Listing, ListingLane, PublicCard } from "./types";
 
@@ -23,8 +25,8 @@ function ebayApi(): string {
   return ebaySandbox() ? "https://api.sandbox.ebay.com" : "https://api.ebay.com";
 }
 
-function lane(card: PublicCard, kind: "auction" | "bin", status: ListingLane["status"], listings: Listing[], notice: string | null): ListingLane {
-  return { status, listings, searchUrl: ebaySearchUrl(card, kind), notice };
+function lane(card: PublicCard, kind: "auction" | "bin", status: ListingLane["status"], listings: Listing[], notice: string | null, printing?: string | null): ListingLane {
+  return { status, listings, searchUrl: ebaySearchUrl(card, kind, null, finishOf(printing) === "reverse" ? "reverse holo" : finishOf(printing) === "holo" ? "holo" : "", null, editionOf(printing)), notice };
 }
 
 function safeEbayUrl(value: unknown): string | null {
@@ -94,7 +96,7 @@ export function listingAmount(item: { price?: unknown; currentBidPrice?: unknown
   return { amount: chosen.amount, currency: chosen.currency ?? "USD" };
 }
 
-function listingsFrom(payload: unknown): Listing[] {
+function listingsFrom(payload: unknown, printing?: string | null): Listing[] {
   const root = payload && typeof payload === "object" ? (payload as { itemSummaries?: unknown }) : null;
   if (!root || !Array.isArray(root.itemSummaries)) return [];
   const listings: Listing[] = [];
@@ -109,6 +111,7 @@ function listingsFrom(payload: unknown): Listing[] {
     const picture = item.image && typeof item.image === "object" ? (item.image as { imageUrl?: unknown }).imageUrl : thumb?.imageUrl;
     const image = typeof picture === "string" && /^https:\/\/i\.ebayimg\.com\//.test(picture) ? picture : null;
     if (/\b(lot|bundle|collection|bulk)\b/i.test(title)) continue;
+    if (!listingMatchesPrinting(title, printing)) continue;
     const shipping = Array.isArray(item.shippingOptions) ? (item.shippingOptions[0] as { shippingCost?: { value?: unknown } } | undefined) : undefined;
     const shipValue = numberOrNull(shipping?.shippingCost?.value);
     listings.push({
@@ -128,19 +131,20 @@ function listingsFrom(payload: unknown): Listing[] {
   return listings;
 }
 
-async function search(card: PublicCard, kind: "auction" | "bin"): Promise<ListingLane> {
-  const key = `${kind}:${card.id}`;
+async function search(card: PublicCard, kind: "auction" | "bin", printing?: string | null): Promise<ListingLane> {
+  const key = `${kind}:${card.id}:${printing ?? ""}`;
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < TTL_MS) return hit.lane;
   const access = await appToken();
   if (!access) {
-    return lane(card, kind, "error", [], "eBay didn’t accept the application key.");
+    return lane(card, kind, "error", [], "eBay didn’t accept the application key.", printing);
   }
   const url = new URL(`${ebayApi()}/buy/browse/v1/item_summary/search`);
   const number = card.printedTotal ? `${card.number}/${card.printedTotal}` : card.number;
-  url.searchParams.set("q", `Pokemon ${card.name} ${number}`.replace(/\s+/g, " "));
+  const edition = editionClause(editionOf(printing));
+  url.searchParams.set("q", `Pokemon ${card.name} ${number} ${edition}`.replace(/\s+/g, " ").trim());
   url.searchParams.set("category_ids", "183454");
-  url.searchParams.set("limit", "10");
+  url.searchParams.set("limit", edition ? "20" : "10");
   url.searchParams.set("filter", `buyingOptions:{${kind === "auction" ? "AUCTION" : "FIXED_PRICE"}}`);
   url.searchParams.set("sort", kind === "auction" ? "endingSoonest" : "newlyListed");
   try {
@@ -152,43 +156,45 @@ async function search(card: PublicCard, kind: "auction" | "bin"): Promise<Listin
       },
     });
     if (!response.ok) {
-      const failed = lane(card, kind, "error", [], "eBay didn’t return listings.");
+      const failed = lane(card, kind, "error", [], "eBay didn’t return listings.", printing);
       return failed;
     }
-    const listings = listingsFrom(await response.json());
+    const listings = listingsFrom(await response.json(), printing);
     const notice = listings.length || !ebaySandbox() ? null : "Sandbox key connected. eBay’s test site has no live Pokémon listings.";
-    const result = lane(card, kind, listings.length ? "live" : "empty", listings, notice);
+    const result = lane(card, kind, listings.length ? "live" : "empty", listings, notice, printing);
     cache.set(key, { at: Date.now(), lane: result });
     return result;
   } catch {
-    return lane(card, kind, "error", [], "eBay didn’t answer in time.");
+    return lane(card, kind, "error", [], "eBay didn’t answer in time.", printing);
   }
 }
 
-export async function marketFor(cards: PublicCard[]): Promise<{
+export async function marketFor(cards: { card: PublicCard; printing?: string | null }[]): Promise<{
   configured: boolean;
   sandbox: boolean;
-  results: { id: string; auctions: ListingLane; buyNow: ListingLane }[];
+  results: { id: string; printing: string | null; auctions: ListingLane; buyNow: ListingLane }[];
 }> {
   if (!ebayConfigured()) {
     return {
       configured: false,
       sandbox: false,
-      results: cards.map((card) => ({
+      results: cards.map(({ card, printing }) => ({
         id: card.id,
-        auctions: lane(card, "auction", "unconfigured", [], null),
-        buyNow: lane(card, "bin", "unconfigured", [], null),
+        printing: printing ?? null,
+        auctions: lane(card, "auction", "unconfigured", [], null, printing),
+        buyNow: lane(card, "bin", "unconfigured", [], null, printing),
       })),
     };
   }
-  const results: { id: string; auctions: ListingLane; buyNow: ListingLane }[] = [];
+  const results: { id: string; printing: string | null; auctions: ListingLane; buyNow: ListingLane }[] = [];
   const queue = [...cards];
   const workers = Array.from({ length: Math.min(3, queue.length) }, async () => {
     while (queue.length > 0) {
-      const card = queue.shift();
-      if (!card) return;
-      const [auctions, buyNow] = await Promise.all([search(card, "auction"), search(card, "bin")]);
-      results.push({ id: card.id, auctions, buyNow });
+      const next = queue.shift();
+      if (!next) return;
+      const printing = next.printing ?? null;
+      const [auctions, buyNow] = await Promise.all([search(next.card, "auction", printing), search(next.card, "bin", printing)]);
+      results.push({ id: next.card.id, printing, auctions, buyNow });
     }
   });
   await Promise.all(workers);

@@ -39,6 +39,18 @@ test("a played raw link asks TCGplayer and eBay for that wear", () => {
   assert.equal(damaged.includes("Card%2520Condition"), false);
 });
 
+test("a 1st edition search asks for that printing and rejects Unlimited", () => {
+  const fossil = { name: "Dragonite", setName: "Fossil", number: "4", printedTotal: 62 } as PublicCard;
+  const href = ebaySearchUrl(fossil, "auction", null, "holo", null, "first");
+  const keywords = new URL(href).searchParams.get("_nkw") ?? "";
+  assert.equal(keywords.includes("1st"), true);
+  assert.equal(keywords.includes("-unlimited"), true);
+  assert.equal(keywords.includes("-unl"), true);
+  const unlimited = new URL(ebaySearchUrl(fossil, "bin", null, "holo", null, "unlimited")).searchParams.get("_nkw") ?? "";
+  assert.equal(unlimited.includes("Unlimited"), true);
+  assert.equal(unlimited.includes("-1st"), true);
+});
+
 test("a graded eBay search uses Graded, Grade, and Professional Grader", () => {
   const href = ebaySearchUrl(umbreon, "auction", { company: "PSA", grade: "7" });
   const url = new URL(href);

@@ -1,3 +1,5 @@
+import { editionClause } from "./listing-match";
+import type { Edition } from "./format";
 import type { ListingLane, PublicCard } from "./types";
 import { EBAY_WEAR, WEAR_LABEL, type Wear } from "./wear";
 
@@ -35,9 +37,9 @@ const EBAY_GRADER: Record<string, string> = {
   TAG: "Technical Authentication & Grading (TAG)",
 };
 
-export function ebaySearchUrl(card: PublicCard, lane: "auction" | "bin" | "sold", grading?: Grading | null, finish?: string, wear?: Wear | null): string {
+export function ebaySearchUrl(card: PublicCard, lane: "auction" | "bin" | "sold", grading?: Grading | null, finish?: string, wear?: Wear | null, edition?: Edition | null): string {
   const url = new URL("https://www.ebay.com/sch/183454/i.html");
-  const parts = [searchPhrase(card), finish ?? "", wear === "DMG" ? "damaged" : ""];
+  const parts = [searchPhrase(card), finish ?? "", editionClause(edition ?? null), wear === "DMG" ? "damaged" : ""];
   url.searchParams.set("_nkw", parts.filter(Boolean).join(" "));
   url.searchParams.set("_sacat", "183454");
   if (lane === "auction") {

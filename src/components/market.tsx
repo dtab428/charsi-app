@@ -9,6 +9,7 @@ import { Pressable } from "@/components/ui/ripple";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCurrency } from "@/components/currency";
 import { buildFeed, COMPANIES, GRADES, type Company, type FeedRow, type FeedSource, type Filters, type SourceFilter } from "@/lib/feed";
+import { editionOf } from "@/lib/format";
 import { WEAR_LABEL, WEARS, type Wear } from "@/lib/wear";
 import { cardHref, printingSlug } from "@/lib/printing";
 import type { ListingLane, Pin, PriceQuote, PublicCard } from "@/lib/types";
@@ -273,6 +274,9 @@ export function CardMarket({
 }) {
   const [showMore, setShowMore] = useState(false);
   const { format } = useCurrency();
+  const edition = editionOf(variantKey);
+  const laneKey = `${card.id}:${variantKey ?? ""}`;
+  const [filtered, setFiltered] = useState<{ key: string; auctions: ListingLane; buyNow: ListingLane } | null>(null);
   const wear = filters.wear ?? "NM";
   const productUrl = quote?.variants.find((entry) => entry.key === variantKey)?.productUrl ?? quote?.productUrl;
   const productId = productIdOf(productUrl);
@@ -300,10 +304,34 @@ export function CardMarket({
     };
   }, [needsAsk, productId, card.name, card.setName, card.number, variantKey, wear, askKey]);
 
+  useEffect(() => {
+    if (!edition) return;
+    let live = true;
+    fetch("/api/market", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ cards: [{ id: card.id, printing: variantKey }] }),
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload: { results?: { auctions?: ListingLane; buyNow?: ListingLane }[] } | null) => {
+        const hit = payload?.results?.[0];
+        if (live && hit?.auctions && hit.buyNow) setFiltered({ key: laneKey, auctions: hit.auctions, buyNow: hit.buyNow });
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [edition, card.id, variantKey, laneKey]);
+
   const ask = !needsAsk ? null : askState?.key === askKey ? askState.amount : undefined;
+  const matched = filtered?.key === laneKey ? filtered : null;
+  const waiting = Boolean(edition && !matched);
+  const holdLane = (lane: ListingLane): ListingLane => ({ ...lane, status: "empty", listings: [], notice: "Checking this printing on eBay." });
+  const auctionsForFeed = waiting ? holdLane(auctions) : matched ? matched.auctions : auctions;
+  const buyNowForFeed = waiting ? holdLane(buyNow) : matched ? matched.buyNow : buyNow;
   const feed = useMemo(
-    () => buildFeed({ card, modifiers, quote, variantKey, auctions, buyNow, pin, filters, format, ask }),
-    [card, modifiers, quote, variantKey, auctions, buyNow, pin, filters, format, ask],
+    () => buildFeed({ card, modifiers, quote, variantKey, auctions: auctionsForFeed, buyNow: buyNowForFeed, pin, filters, format, ask }),
+    [card, modifiers, quote, variantKey, auctionsForFeed, buyNowForFeed, pin, filters, format, ask],
   );
 
 

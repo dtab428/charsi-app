@@ -1,5 +1,5 @@
 import { pickVariant, saleAverages } from "./facts";
-import { endsLabel, listedLabel, money, quoteDate } from "./format";
+import { editionOf, endsLabel, listedLabel, money, quoteDate, type Edition } from "./format";
 import { affiliateUrl, altSearchUrl, cardmarketSearchUrl, fanaticsSearchUrl, ebaySearchUrl, facebookSearchUrl, finishTerm, goldinSearchUrl, httpsHref, tcgplayerProductUrl, tcgplayerSearchUrl, type Grading } from "./links";
 import type { Listing, ListingLane, Pin, PriceQuote, PublicCard } from "./types";
 import { isWear, WEAR_LABEL, type Wear } from "./wear";
@@ -89,7 +89,7 @@ function listingRow(listing: Listing, kind: "auction" | "bin", index: number, sh
   };
 }
 
-function laneLinkRow(card: PublicCard, lane: ListingLane, kind: "auction" | "bin", grading: Grading | null, order: number, finish = "", wear?: Wear): FeedRow {
+function laneLinkRow(card: PublicCard, lane: ListingLane, kind: "auction" | "bin", grading: Grading | null, order: number, finish = "", wear?: Wear, edition?: Edition | null): FeedRow {
   const graded = grading ? ` · ${grading.company} ${grading.grade}` : "";
   let sub = kind === "auction" ? "Ending soonest first" : "Newest listings first";
   if (!grading) {
@@ -104,7 +104,7 @@ function laneLinkRow(card: PublicCard, lane: ListingLane, kind: "auction" | "bin
     sub,
     value: "Open eBay",
     when: null,
-    href: grading || finish || wear ? ebaySearchUrl(card, kind, grading, finish, wear) : lane.searchUrl || ebaySearchUrl(card, kind),
+    href: grading || finish || wear || edition ? ebaySearchUrl(card, kind, grading, finish, wear, edition) : lane.searchUrl || ebaySearchUrl(card, kind),
     link: true,
     at: 0,
     order,
@@ -154,7 +154,7 @@ export function buildFeed(input: {
         sub: "Sold listings, newest first",
         value: "Open eBay",
         when: null,
-        href: ebaySearchUrl(card, "sold", null, finishTerm(variant?.key), wear),
+        href: ebaySearchUrl(card, "sold", null, finishTerm(variant?.key), wear, editionOf(variant?.key)),
         link: true,
         at: TOP,
         order: 0,
@@ -300,8 +300,9 @@ export function buildFeed(input: {
       const auctionRows = auctions.status === "live" ? auctions.listings.map((listing, index) => listingRow(listing, "auction", index, show)).sort((a, b) => a.at - b.at) : [];
       const binRows = buyNow.status === "live" ? buyNow.listings.map((listing, index) => listingRow(listing, "bin", index, show)).sort((a, b) => b.at - a.at) : [];
       const asked = finishTerm(variant?.key);
-      live.push(...(auctionRows.length > 0 ? auctionRows : [laneLinkRow(card, auctions, "auction", null, 0, asked, wear)]));
-      live.push(...(binRows.length > 0 ? binRows : [laneLinkRow(card, buyNow, "bin", null, 1, asked, wear)]));
+      const edition = editionOf(variant?.key);
+      live.push(...(auctionRows.length > 0 ? auctionRows : [laneLinkRow(card, auctions, "auction", null, 0, asked, wear, edition)]));
+      live.push(...(binRows.length > 0 ? binRows : [laneLinkRow(card, buyNow, "bin", null, 1, asked, wear, edition)]));
       if (wear !== "NM") {
         notice = wear === "DMG"
           ? "eBay has no Damaged filter for Pokémon singles, so that link searches the word. Live eBay rows are not filtered by condition. The TCGplayer link opens Damaged."
@@ -349,13 +350,13 @@ export function buildFeed(input: {
         sub: "Sold listings, newest first",
         value: "Open eBay",
         when: null,
-        href: ebaySearchUrl(card, "sold", grading, asked),
+        href: ebaySearchUrl(card, "sold", grading, asked, null, editionOf(printing?.key)),
         link: true,
         at: TOP,
         order: 0,
       });
-      live.push(laneLinkRow(card, auctions, "auction", grading, 0, asked));
-      live.push(laneLinkRow(card, buyNow, "bin", grading, 1, asked));
+      live.push(laneLinkRow(card, auctions, "auction", grading, 0, asked, undefined, editionOf(printing?.key)));
+      live.push(laneLinkRow(card, buyNow, "bin", grading, 1, asked, undefined, editionOf(printing?.key)));
     }
     const rawVariant = quote?.variants.find((entry) => entry.key === variantKey) ?? pickVariant([], quote?.variants ?? []);
     const marketSource: FeedSource = quote?.source === "scrydex" ? "scrydex" : "tcgplayer";
