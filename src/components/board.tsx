@@ -10,13 +10,15 @@ import { PrintingPicker } from "@/components/printing-picker";
 import { Pressable } from "@/components/ui/ripple";
 import { useEffect, useRef, useState } from "react";
 import { mergePrintings, printingFamily, resolveActive, shownPicture } from "@/lib/facts";
-import { finishOf, reverseStamp, variantLabel } from "@/lib/format";
+import { finishOf, reverseStamp, variantLabel, type Finish } from "@/lib/format";
 import { cardHref, printingSlug } from "@/lib/printing";
 import { COMPANIES, GRADES, type Company, type Filters } from "@/lib/feed";
 import { emptyLane } from "@/lib/links";
 import type { ListingLane, Pin, PriceQuote, PublicCard, ResolveItem } from "@/lib/types";
 
 export type View = { condition: "raw" | Company; grade: string };
+
+export type ZoomShot = { card: PublicCard; src: string; finish: Finish | null; stamp: string; badge: boolean };
 
 export type DeskItem = ResolveItem & { key: string; slot: number; included: boolean; picked: string | null; view: View | null };
 
@@ -58,11 +60,12 @@ function Face({
   finish: ReturnType<typeof finishOf>;
   badge: boolean;
   slab: { company: string; grade: string } | null;
-  onZoom: (card: PublicCard) => void;
+  onZoom: (shot: ZoomShot) => void;
 }) {
-  const picture = <CardPicture src={src} alt={card.name} finish={finish} badge={badge} stamp={finish === "reverse" ? reverseStamp(card.setId) : ""} width={245} height={342} />;
+  const stamp = finish === "reverse" ? reverseStamp(card.setId) : "";
+  const picture = <CardPicture src={src} alt={card.name} finish={finish} badge={badge} stamp={stamp} width={245} height={342} />;
   return (
-    <Pressable onClick={() => onZoom(card)} className="block w-full rounded-md text-left">
+    <Pressable onClick={() => onZoom({ card, src, finish, stamp, badge })} className="block w-full rounded-md text-left">
       {slab ? (
         <Slab company={slab.company} grade={slab.grade}>
           {picture}
@@ -150,7 +153,7 @@ function CardDesk({
   onView: (key: string, view: View) => void;
   onCopy: (card: PublicCard) => void;
   onSave: (card: PublicCard) => void;
-  onZoom: (card: PublicCard) => void;
+  onZoom: (shot: ZoomShot) => void;
   columns: 1 | 2;
 }) {
   const card = item.card;
@@ -338,7 +341,7 @@ export function Board({
   onView: (key: string, view: View) => void;
   onCopy: (card: PublicCard) => void;
   onSave: (card: PublicCard) => void;
-  onZoom: (card: PublicCard) => void;
+  onZoom: (shot: ZoomShot) => void;
   columns: 1 | 2;
 }) {
   return (

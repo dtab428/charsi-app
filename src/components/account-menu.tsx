@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { CurrencySelect } from "@/components/currency";
 import { Button } from "@/components/ui/button";
 import { Pressable } from "@/components/ui/ripple";
 
@@ -62,6 +63,7 @@ export function AccountMenu() {
   if (!me) {
     return (
       <div className="flex flex-wrap items-center gap-2">
+        <CurrencySelect />
         <Pressable href="/collection" sameTab className="inline-flex h-8 items-center rounded-full border border-white/15 px-3 text-sm hover:bg-white/10">
           My Collection
         </Pressable>
@@ -77,6 +79,7 @@ export function AccountMenu() {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
+      <CurrencySelect />
       <Pressable href="/collection" sameTab className="inline-flex h-8 items-center rounded-full border border-white/15 px-3 text-sm hover:bg-white/10">
         My Collection
       </Pressable>

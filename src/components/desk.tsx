@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Board, type DeskItem, type View } from "@/components/board";
+import { Board, type DeskItem, type View, type ZoomShot } from "@/components/board";
 import { CardPicture } from "@/components/card-picture";
 import { HoldingsProvider } from "@/components/holding-toggles";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,8 @@ import { keptAfterChoice, marketAmount, mergePrintings, printingFamily, resolveA
 import { printingSlug } from "@/lib/printing";
 import { deskShareFrom, deskShareHref, EMPTY_LINE, type DeskShare, type FilterShare, type LineShare } from "@/lib/share";
 import { withSharedCard, withSharedPrinting } from "@/lib/share-pick";
-import { fileSlug, finishOf, money, reverseStamp, variantLabel } from "@/lib/format";
+import { useCurrency } from "@/components/currency";
+import { fileSlug, finishOf, reverseStamp, variantLabel } from "@/lib/format";
 import { GAMES, SAMPLE_LIST } from "@/lib/games";
 import { cardBands } from "@/lib/photo-bands";
 import { copyBlob, downloadBlob, firstCardBlob } from "@/lib/pictures";
@@ -110,7 +111,8 @@ export function Desk() {
   const [ebaySandbox, setEbaySandbox] = useState(false);
   const [pulled, setPulled] = useState<{ q: string; slots: number } | null>(null);
   const [pins, setPins] = useState<Record<string, Pin>>({});
-  const [zoom, setZoom] = useState<PublicCard | null>(null);
+  const [zoom, setZoom] = useState<ZoomShot | null>(null);
+  const { format } = useCurrency();
   const [sheeting, setSheeting] = useState(false);
   const [reading, setReading] = useState(0);
   const [over, setOver] = useState(false);
@@ -424,7 +426,7 @@ export function Desk() {
     return amount == null ? sum : sum + amount * item.quantity;
   }, 0);
   const priced = items.filter((item) => item.card && marketAmount(item.modifiers, quotes[item.card.id], item.finish, item.picked) != null).length;
-  const listWorth = priced > 0 ? money(worth, "USD") : "";
+  const listWorth = priced > 0 ? format(worth, "USD") : "";
   const skeletons = Math.min(8, Math.max(3, text.split(/\n|,/).filter((line) => line.trim()).length));
 
   return (
@@ -643,16 +645,18 @@ export function Desk() {
           {zoom ? (
             <>
               <DialogHeader>
-                <DialogTitle className="font-serif text-2xl italic">{zoom.name}</DialogTitle>
+                <DialogTitle className="font-serif text-2xl italic">{zoom.card.name}</DialogTitle>
                 <DialogDescription>
-                  {zoom.setName} · {zoom.number}
-                  {zoom.printedTotal ? `/${zoom.printedTotal}` : ""} · {zoom.rarity}
+                  {zoom.card.setName} · {zoom.card.number}
+                  {zoom.card.printedTotal ? `/${zoom.card.printedTotal}` : ""} · {zoom.card.rarity}
                 </DialogDescription>
               </DialogHeader>
-              <div className="mx-auto w-full max-w-[22rem]"><CardPicture src={zoom.large || zoom.small} backup={zoom.small} alt={zoom.name} finish={null} width={480} height={670} priority /></div>
+              <div className="mx-auto w-full max-w-[22rem]">
+                <CardPicture src={zoom.src} backup={zoom.card.small} alt={zoom.card.name} finish={zoom.finish} stamp={zoom.stamp} badge={zoom.badge} width={480} height={670} priority />
+              </div>
               <div className="flex gap-2">
-                <Button type="button" onClick={() => void copyCard(zoom)}>Copy this picture</Button>
-                <Button type="button" variant="secondary" onClick={() => void saveCard(zoom)}>Save this picture</Button>
+                <Button type="button" onClick={() => void copyCard(zoom.card)}>Copy this picture</Button>
+                <Button type="button" variant="secondary" onClick={() => void saveCard(zoom.card)}>Save this picture</Button>
               </div>
             </>
           ) : null}

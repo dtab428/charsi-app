@@ -123,7 +123,7 @@ export async function renderSheet(cells: SheetCell[], title: string): Promise<Bl
       context.drawImage(bitmap, x, y, cardWidth, cardHeight);
       const logo = cell.finish === "reverse" && cell.stamp ? logos.get(cell.stamp) : null;
       if (logo) drawStamp(context, x, y, cardWidth, cardHeight, logo);
-      if (cell.badge && cell.finish === "reverse") drawPill(context, x, y, "Reverse", "#c6a15b", "#241c14");
+      if (cell.badge && cell.finish === "reverse" && !cell.stamp) drawPill(context, x, y, "Reverse", "#c6a15b", "#241c14");
       else if (cell.badge && cell.finish === "holo") {
         context.strokeStyle = "#f0d7a4";
         context.lineWidth = 2;

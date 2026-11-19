@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { ebaySearchUrl, tcgplayerProductUrl } from "./links";
+import { ebaySearchUrl, searchPhrase, tcgplayerProductUrl, tcgplayerSearchUrl } from "./links";
 import type { PublicCard } from "./types";
 
 const umbreon = {
@@ -9,6 +9,19 @@ const umbreon = {
   number: "BW93",
   printedTotal: 101,
 } as PublicCard;
+
+test("Rayquaza ex 039 searches as the printed promo number", () => {
+  const rayquaza = {
+    name: "Rayquaza ex",
+    setId: "np",
+    setName: "Nintendo Black Star Promos",
+    number: "39",
+    printedTotal: 40,
+  } as PublicCard;
+  const href = tcgplayerSearchUrl(rayquaza);
+  assert.equal(new URL(href).searchParams.get("q"), "Rayquaza ex 039");
+  assert.equal(searchPhrase(rayquaza), "Pokemon Rayquaza ex 039");
+});
 
 test("a TCGplayer product link opens that printing in Near Mint", () => {
   const href = tcgplayerProductUrl("https://www.tcgplayer.com/product/85633/pokemon-ex-emerald-gardevoir", "reverseHolofoil");

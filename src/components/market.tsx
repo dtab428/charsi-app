@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Pressable } from "@/components/ui/ripple";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useCurrency } from "@/components/currency";
 import { buildFeed, COMPANIES, GRADES, type Company, type FeedRow, type FeedSource, type Filters, type SourceFilter } from "@/lib/feed";
 import { cardHref, printingSlug } from "@/lib/printing";
 import type { ListingLane, Pin, PriceQuote, PublicCard } from "@/lib/types";
@@ -214,9 +215,10 @@ export function CardMarket({
   hideDetailsLink?: boolean;
 }) {
   const [showMore, setShowMore] = useState(false);
+  const { format } = useCurrency();
   const feed = useMemo(
-    () => buildFeed({ card, modifiers, quote, variantKey, auctions, buyNow, pin, filters }),
-    [card, modifiers, quote, variantKey, auctions, buyNow, pin, filters],
+    () => buildFeed({ card, modifiers, quote, variantKey, auctions, buyNow, pin, filters, format }),
+    [card, modifiers, quote, variantKey, auctions, buyNow, pin, filters, format],
   );
 
 

@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { SiteHeader } from "@/components/account-menu";
 import { HoldingsProvider, HoldingToggles } from "@/components/holding-toggles";
 import { AddToCollection } from "@/components/add-to-collection";
+import { useCurrency } from "@/components/currency";
 import { CardMarket, MarketFilters } from "@/components/market";
 import { PriceChart, type ChartPoint } from "@/components/price-chart";
 import { PrintingPicker } from "@/components/printing-picker";
@@ -43,6 +44,7 @@ export function CardPage({ card, printing, siblings = [] }: { card: PublicCard; 
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [pin, setPin] = useState<Pin>(NO_PIN);
+  const { present } = useCurrency();
 
   useEffect(() => {
     let live = true;
@@ -215,15 +217,15 @@ export function CardPage({ card, printing, siblings = [] }: { card: PublicCard; 
               <div className="grid gap-4 md:grid-cols-2">
                 <PriceChart
                   title="TCGplayer market price"
-                  currency="USD"
-                  points={marketPoints}
+                  currency={present(marketPoints[0]?.value ?? 0, "USD").currency}
+                  points={marketPoints.map((point) => ({ ...point, value: present(point.value, "USD").amount }))}
                   empty={loading ? "Loading…" : "No price saved for this printing yet."}
                   note={since ? `Saved once a day while Charsi runs, since ${quoteDate(since) ?? since}. It grows as you keep using it.` : "History starts the first time this card’s price is saved. No free source publishes older sales."}
                 />
                 <PriceChart
                   title="Cardmarket 7-day average"
-                  currency="EUR"
-                  points={cardmarketHistory.length > 1 ? cardmarketHistory : averagePoints}
+                  currency={present((cardmarketHistory.length > 1 ? cardmarketHistory : averagePoints)[0]?.value ?? 0, "EUR").currency}
+                  points={(cardmarketHistory.length > 1 ? cardmarketHistory : averagePoints).map((point) => ({ ...point, value: present(point.value, "EUR").amount }))}
                   empty={loading ? "Loading…" : "Cardmarket has no sales average for this card."}
                   note={cardmarketHistory.length > 1 ? "Saved daily by Charsi." : "Until daily history builds up, this shows the 30-day, 7-day and yesterday averages Cardmarket reports."}
                 />

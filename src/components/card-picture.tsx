@@ -20,14 +20,7 @@ function Stamp({ id }: { id: string }) {
 }
 
 function Mark({ finish, stamp, badge }: { finish: Finish | null; stamp: string; badge: boolean }) {
-  if (finish === "reverse" && stamp) {
-    return (
-      <>
-        <Stamp id={stamp} />
-        {badge ? <span className="pointer-events-none absolute top-1.5 left-1.5 rounded-full bg-[#c6a15b] px-2 py-0.5 text-[10px] font-medium tracking-[0.12em] text-[#241c14] uppercase">Reverse</span> : null}
-      </>
-    );
-  }
+  if (finish === "reverse" && stamp) return <Stamp id={stamp} />;
   if (!badge) return null;
   if (finish === "reverse") {
     return <span className="pointer-events-none absolute top-1.5 left-1.5 rounded-full bg-[#c6a15b] px-2 py-0.5 text-[10px] font-medium tracking-[0.12em] text-[#241c14] uppercase">Reverse</span>;

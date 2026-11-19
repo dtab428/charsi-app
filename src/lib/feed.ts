@@ -3,6 +3,8 @@ import { endsLabel, listedLabel, money, quoteDate } from "./format";
 import { affiliateUrl, altSearchUrl, cardmarketSearchUrl, fanaticsSearchUrl, ebaySearchUrl, facebookSearchUrl, finishTerm, goldinSearchUrl, httpsHref, tcgplayerProductUrl, tcgplayerSearchUrl, type Grading } from "./links";
 import type { Listing, ListingLane, Pin, PriceQuote, PublicCard } from "./types";
 
+export type MoneyFormat = (amount: number | null | undefined, currency: string) => string;
+
 export type SourceFilter = "all" | "tcgplayer" | "cardmarket" | "ebay";
 export type Company = "PSA" | "BGS" | "CGC" | "TAG" | "SGC";
 export type Condition = "raw" | Company;
@@ -66,7 +68,7 @@ function time(value: string | null): number {
   return Number.isNaN(parsed) ? 0 : parsed;
 }
 
-function listingRow(listing: Listing, kind: "auction" | "bin", index: number): FeedRow {
+function listingRow(listing: Listing, kind: "auction" | "bin", index: number, show: MoneyFormat): FeedRow {
   const parts =
     kind === "auction"
       ? [listing.bids != null ? `${listing.bids} ${listing.bids === 1 ? "bid" : "bids"}` : null, listing.shipping, listing.condition]
@@ -76,7 +78,7 @@ function listingRow(listing: Listing, kind: "auction" | "bin", index: number): F
     source: "ebay",
     label: listing.title,
     sub: parts.filter(Boolean).join(" · ") || null,
-    value: money(listing.price, listing.currency),
+    value: show(listing.price, listing.currency),
     image: listing.image,
     when: kind === "auction" ? endsLabel(listing.endsAt) : listedLabel(listing.listedAt),
     href: affiliateUrl(listing.url),
@@ -108,8 +110,8 @@ function laneLinkRow(card: PublicCard, lane: ListingLane, kind: "auction" | "bin
   };
 }
 
-function marketSub(variant: { label: string; low: number | null; high: number | null; currency: string }): string {
-  const range = variant.low != null && variant.high != null ? ` Listings ${money(variant.low, variant.currency)}–${money(variant.high, variant.currency)}.` : "";
+function marketSub(variant: { label: string; low: number | null; high: number | null; currency: string }, show: MoneyFormat): string {
+  const range = variant.low != null && variant.high != null ? ` Listings ${show(variant.low, variant.currency)}–${show(variant.high, variant.currency)}.` : "";
   return `${variant.label} · sales market, not the Near Mint ask.${range}`;
 }
 
@@ -122,8 +124,10 @@ export function buildFeed(input: {
   buyNow: ListingLane;
   pin: Pin;
   filters: Filters;
+  format?: MoneyFormat;
 }): Feed {
   const { card, modifiers, quote, variantKey, auctions, buyNow, pin, filters } = input;
+  const show = input.format ?? money;
   const ended: FeedRow[] = [];
   const live: FeedRow[] = [];
   const more: FeedRow[] = [];
@@ -159,8 +163,8 @@ export function buildFeed(input: {
         id: "market",
         source: marketSource,
         label: "Market price",
-        sub: marketSub(variant),
-        value: money(variant.market, variant.currency),
+        sub: marketSub(variant, show),
+        value: show(variant.market, variant.currency),
         when: stamped ? `Refreshed ${stamped}` : null,
         href: marketHref,
         link: false,
@@ -172,8 +176,8 @@ export function buildFeed(input: {
           id: "range",
           source: marketSource,
           label: "Price range",
-          sub: `${variant.label} · Mid ${money(variant.mid, variant.currency)}`,
-          value: `${money(variant.low, variant.currency)} – ${money(variant.high, variant.currency)}`,
+          sub: `${variant.label} · Mid ${show(variant.mid, variant.currency)}`,
+          value: `${show(variant.low, variant.currency)} – ${show(variant.high, variant.currency)}`,
           when: null,
           href: marketHref,
           link: false,
@@ -213,7 +217,7 @@ export function buildFeed(input: {
             source: "cardmarket",
             label: "Sold average",
             sub: label,
-            value: money(value, "EUR"),
+            value: show(value, "EUR"),
             when,
             href: cardmarketHref,
             link: false,
@@ -222,10 +226,10 @@ export function buildFeed(input: {
           });
         });
         if (sales.trend != null) {
-          more.push({ id: "trend", source: "cardmarket", label: "Trend price", sub: null, value: money(sales.trend, "EUR"), when: null, href: cardmarketHref, link: false, at: 0, order: 1 });
+          more.push({ id: "trend", source: "cardmarket", label: "Trend price", sub: null, value: show(sales.trend, "EUR"), when: null, href: cardmarketHref, link: false, at: 0, order: 1 });
         }
         if (sales.low != null) {
-          more.push({ id: "low", source: "cardmarket", label: "Lowest listing", sub: null, value: money(sales.low, "EUR"), when: null, href: cardmarketHref, link: false, at: 0, order: 2 });
+          more.push({ id: "low", source: "cardmarket", label: "Lowest listing", sub: null, value: show(sales.low, "EUR"), when: null, href: cardmarketHref, link: false, at: 0, order: 2 });
         }
       } else {
         averages.push({
@@ -244,8 +248,8 @@ export function buildFeed(input: {
     }
 
     if (keep("ebay")) {
-      const auctionRows = auctions.status === "live" ? auctions.listings.map((listing, index) => listingRow(listing, "auction", index)).sort((a, b) => a.at - b.at) : [];
-      const binRows = buyNow.status === "live" ? buyNow.listings.map((listing, index) => listingRow(listing, "bin", index)).sort((a, b) => b.at - a.at) : [];
+      const auctionRows = auctions.status === "live" ? auctions.listings.map((listing, index) => listingRow(listing, "auction", index, show)).sort((a, b) => a.at - b.at) : [];
+      const binRows = buyNow.status === "live" ? buyNow.listings.map((listing, index) => listingRow(listing, "bin", index, show)).sort((a, b) => b.at - a.at) : [];
       const asked = finishTerm(variant?.key);
       live.push(...(auctionRows.length > 0 ? auctionRows : [laneLinkRow(card, auctions, "auction", null, 0, asked)]));
       live.push(...(binRows.length > 0 ? binRows : [laneLinkRow(card, buyNow, "bin", null, 1, asked)]));
@@ -273,8 +277,8 @@ export function buildFeed(input: {
           id: `graded-${entry.company}-${entry.grade}-${index}`,
           source: "scrydex",
           label: `${entry.company} ${entry.grade}`,
-          sub: `Low ${money(entry.low, entry.currency)} · High ${money(entry.high, entry.currency)}`,
-          value: money(entry.market, entry.currency),
+          sub: `Low ${show(entry.low, entry.currency)} · High ${show(entry.high, entry.currency)}`,
+          value: show(entry.market, entry.currency),
           when: null,
           href: null,
           link: false,
@@ -308,7 +312,7 @@ export function buildFeed(input: {
         source: marketSource,
         label: "Raw market price",
         sub: `${rawVariant.label} · ungraded, not ${grading.company} ${grading.grade}`,
-        value: money(rawVariant.market, rawVariant.currency),
+        value: show(rawVariant.market, rawVariant.currency),
         when: stamped ? `Refreshed ${stamped}` : null,
         href: affiliateUrl(tcgplayerProductUrl(httpsHref(rawVariant.productUrl ?? quote?.productUrl, tcgplayerSearchUrl(card)), rawVariant.key)),
         link: false,
@@ -331,7 +335,7 @@ export function buildFeed(input: {
           source: "cardmarket",
           label: "Raw sold average",
           sub: `${label} · ungraded`,
-          value: money(value, "EUR"),
+          value: show(value, "EUR"),
           when: null,
           href: cardmarketHref,
           link: false,

@@ -10,7 +10,8 @@ import { Pressable } from "@/components/ui/ripple";
 import { Skeleton } from "@/components/ui/skeleton";
 import { findPrinting, cardHref, printingName } from "@/lib/printing";
 import { pickVariant } from "@/lib/facts";
-import { finishOf, money, reverseStamp } from "@/lib/format";
+import { useCurrency } from "@/components/currency";
+import { finishOf, reverseStamp } from "@/lib/format";
 import type { PriceQuote, PublicCard } from "@/lib/types";
 
 type Entry = {
@@ -28,6 +29,7 @@ type Entry = {
 type Tab = "all" | "raw" | "graded";
 
 function Tile({ entry, value, onQuantity, onRemove }: { entry: Entry; value: number | null; onQuantity: (entry: Entry, quantity: number) => void; onRemove: (entry: Entry) => void }) {
+  const { format } = useCurrency();
   const finish = finishOf(entry.printing);
   const picture = <CardPicture src={entry.card.small} alt={entry.card.name} finish={finish} stamp={finish === "reverse" ? reverseStamp(entry.card.setId) : ""} width={245} height={342} />;
   return (
@@ -55,7 +57,7 @@ function Tile({ entry, value, onQuantity, onRemove }: { entry: Entry; value: num
             {entry.kind === "graded" ? `${entry.company} ${entry.grade}` : "Raw"}
           </span>
         </p>
-        {value != null ? <p className="mt-2 text-sm text-[#b3a694]">Market {money(value, "USD")} each</p> : null}
+        {value != null ? <p className="mt-2 text-sm text-[#b3a694]">Market {format(value, "USD")} each</p> : null}
         <div className="mt-auto flex items-center gap-2 pt-3">
           <Button type="button" size="sm" variant="outline" aria-label="One fewer" disabled={entry.quantity <= 1} onClick={() => onQuantity(entry, entry.quantity - 1)}>
             −
@@ -171,6 +173,7 @@ function Holdings({
   });
   const count = (kind: Tab) => (entries ?? []).filter((entry) => kind === "all" || entry.kind === kind).reduce((sum, entry) => sum + entry.quantity, 0);
   const rawWorth = (entries ?? []).reduce((sum, entry) => sum + (valueOf(entry) ?? 0) * entry.quantity, 0);
+  const { format } = useCurrency();
 
   return (
     <div className="min-h-screen">
@@ -196,7 +199,7 @@ function Holdings({
                   {key === "all" ? "All" : key === "raw" ? "Raw" : "Graded"} · {count(key)}
                 </Button>
               ))}
-              {rawWorth > 0 ? <span className="ml-auto text-sm text-[#b3a694]">Raw copies at market: <span className="font-serif text-xl text-[#f3ecdf]">{money(rawWorth, "USD")}</span></span> : null}
+              {rawWorth > 0 ? <span className="ml-auto text-sm text-[#b3a694]">Raw copies at market: <span className="font-serif text-xl text-[#f3ecdf]">{format(rawWorth, "USD")}</span></span> : null}
             </div>
             <div className="flex flex-wrap gap-2">
               <Filter label="Set" value={setName} options={sets} onChange={setSetName} />

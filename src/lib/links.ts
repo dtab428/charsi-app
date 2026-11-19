@@ -1,6 +1,18 @@
 import type { ListingLane, PublicCard } from "./types";
 
+// Nintendo Black Star Promos are "Nintendo Promos" on TCGplayer, and the
+// number on the card is 039, not the catalog's 39. Searching the catalog
+// set name plus the short number returns no products.
+function nintendoPromo(card: PublicCard): boolean {
+  return card.setId === "np";
+}
+
+function printedPromoNumber(card: PublicCard): string {
+  return /^\d+$/.test(card.number) ? card.number.padStart(3, "0") : card.number;
+}
+
 export function searchPhrase(card: PublicCard): string {
+  if (nintendoPromo(card)) return `Pokemon ${card.name} ${printedPromoNumber(card)}`.replace(/\s+/g, " ").trim();
   const number = card.printedTotal ? `${card.number}/${card.printedTotal}` : card.number;
   return `Pokemon ${card.name} ${card.setName} ${number}`.replace(/\s+/g, " ").trim();
 }
@@ -63,7 +75,8 @@ function ebayAspect(name: string, value: string): string {
 
 export function tcgplayerSearchUrl(card: PublicCard): string {
   const url = new URL("https://www.tcgplayer.com/search/pokemon/product");
-  url.searchParams.set("q", `${card.name} ${card.setName} ${card.number}`);
+  const query = nintendoPromo(card) ? `${card.name} ${printedPromoNumber(card)}` : `${card.name} ${card.setName} ${card.number}`;
+  url.searchParams.set("q", query.replace(/\s+/g, " ").trim());
   url.searchParams.set("view", "grid");
   return affiliateUrl(url.toString());
 }

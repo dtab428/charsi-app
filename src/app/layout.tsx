@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Instrument_Serif } from "next/font/google";
+import { CurrencyProvider } from "@/components/currency";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
@@ -25,10 +26,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${geist.variable} ${serif.variable} dark h-full antialiased`}>
       <body className="min-h-full bg-background font-sans text-foreground">
-        <TooltipProvider>
-          {children}
-          <Toaster />
-        </TooltipProvider>
+        <CurrencyProvider>
+          <TooltipProvider>
+            {children}
+            <Toaster />
+          </TooltipProvider>
+        </CurrencyProvider>
       </body>
     </html>
   );
