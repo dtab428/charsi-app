@@ -68,6 +68,35 @@ export function tcgplayerSearchUrl(card: PublicCard): string {
   return affiliateUrl(url.toString());
 }
 
+const TCG_PRINTING: Record<string, string> = {
+  normal: "Normal",
+  holofoil: "Holofoil",
+  reverseHolofoil: "Reverse Holofoil",
+  "1stEdition": "1st Edition",
+  "1stEditionNormal": "1st Edition",
+  "1stEditionHolofoil": "1st Edition Holofoil",
+  unlimited: "Unlimited",
+  unlimitedNormal: "Unlimited",
+  unlimitedHolofoil: "Unlimited Holofoil",
+};
+
+// A product page with no printing or condition selected mixes every copy.
+// Raw links open that printing in Near Mint, which is the condition the price is being compared with.
+export function tcgplayerProductUrl(href: string, variantKey: string | null | undefined): string {
+  let url: URL;
+  try {
+    url = new URL(href);
+  } catch {
+    return href;
+  }
+  if (!url.hostname.replace(/^www\./, "").endsWith("tcgplayer.com") || !url.pathname.includes("/product/")) return href;
+  const printing = variantKey ? TCG_PRINTING[variantKey] : undefined;
+  if (printing) url.searchParams.set("Printing", printing);
+  url.searchParams.set("page", "1");
+  url.searchParams.set("Condition", "Near Mint");
+  return url.toString();
+}
+
 export function affiliateUrl(value: string): string {
   let url: URL;
   try {

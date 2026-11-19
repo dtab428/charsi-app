@@ -1,6 +1,6 @@
 import { pickVariant, saleAverages } from "./facts";
 import { endsLabel, listedLabel, money, quoteDate } from "./format";
-import { affiliateUrl, altSearchUrl, cardmarketSearchUrl, fanaticsSearchUrl, ebaySearchUrl, facebookSearchUrl, finishTerm, goldinSearchUrl, httpsHref, tcgplayerSearchUrl, type Grading } from "./links";
+import { affiliateUrl, altSearchUrl, cardmarketSearchUrl, fanaticsSearchUrl, ebaySearchUrl, facebookSearchUrl, finishTerm, goldinSearchUrl, httpsHref, tcgplayerProductUrl, tcgplayerSearchUrl, type Grading } from "./links";
 import type { Listing, ListingLane, Pin, PriceQuote, PublicCard } from "./types";
 
 export type SourceFilter = "all" | "tcgplayer" | "cardmarket" | "ebay";
@@ -108,6 +108,11 @@ function laneLinkRow(card: PublicCard, lane: ListingLane, kind: "auction" | "bin
   };
 }
 
+function marketSub(variant: { label: string; low: number | null; high: number | null; currency: string }): string {
+  const range = variant.low != null && variant.high != null ? ` Listings ${money(variant.low, variant.currency)}–${money(variant.high, variant.currency)}.` : "";
+  return `${variant.label} · sales market, not the Near Mint ask.${range}`;
+}
+
 export function buildFeed(input: {
   card: PublicCard;
   modifiers: string[];
@@ -129,7 +134,7 @@ export function buildFeed(input: {
   if (filters.condition === "raw") {
     const variant = quote?.variants.find((entry) => entry.key === variantKey) ?? pickVariant(modifiers, quote?.variants ?? []);
     const marketSource: FeedSource = quote?.source === "scrydex" ? "scrydex" : "tcgplayer";
-    const marketHref = affiliateUrl(httpsHref(variant?.productUrl ?? quote?.productUrl, tcgplayerSearchUrl(card)));
+    const marketHref = affiliateUrl(tcgplayerProductUrl(httpsHref(variant?.productUrl ?? quote?.productUrl, tcgplayerSearchUrl(card)), variant?.key));
     const cardmarketHref = httpsHref(quote?.cardmarket?.url, cardmarketSearchUrl(card));
     const sales = saleAverages(quote, variant);
 
@@ -154,7 +159,7 @@ export function buildFeed(input: {
         id: "market",
         source: marketSource,
         label: "Market price",
-        sub: `${variant.label} · TCGplayer’s market figure`,
+        sub: marketSub(variant),
         value: money(variant.market, variant.currency),
         when: stamped ? `Refreshed ${stamped}` : null,
         href: marketHref,
@@ -305,7 +310,7 @@ export function buildFeed(input: {
         sub: `${rawVariant.label} · ungraded, not ${grading.company} ${grading.grade}`,
         value: money(rawVariant.market, rawVariant.currency),
         when: stamped ? `Refreshed ${stamped}` : null,
-        href: affiliateUrl(httpsHref(rawVariant.productUrl ?? quote?.productUrl, tcgplayerSearchUrl(card))),
+        href: affiliateUrl(tcgplayerProductUrl(httpsHref(rawVariant.productUrl ?? quote?.productUrl, tcgplayerSearchUrl(card)), rawVariant.key)),
         link: false,
         at: stamp(quote?.updatedAt),
         order: 2,

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { ebaySearchUrl } from "./links";
+import { ebaySearchUrl, tcgplayerProductUrl } from "./links";
 import type { PublicCard } from "./types";
 
 const umbreon = {
@@ -9,6 +9,12 @@ const umbreon = {
   number: "BW93",
   printedTotal: 101,
 } as PublicCard;
+
+test("a TCGplayer product link opens that printing in Near Mint", () => {
+  const href = tcgplayerProductUrl("https://www.tcgplayer.com/product/85633/pokemon-ex-emerald-gardevoir", "reverseHolofoil");
+  assert.equal(href, "https://www.tcgplayer.com/product/85633/pokemon-ex-emerald-gardevoir?Printing=Reverse+Holofoil&page=1&Condition=Near+Mint");
+  assert.equal(tcgplayerProductUrl("https://www.tcgplayer.com/search/pokemon/product?q=Gardevoir", "holofoil"), "https://www.tcgplayer.com/search/pokemon/product?q=Gardevoir");
+});
 
 test("a graded eBay search uses Graded, Grade, and Professional Grader", () => {
   const href = ebaySearchUrl(umbreon, "auction", { company: "PSA", grade: "7" });
